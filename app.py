@@ -29,6 +29,22 @@ def setup_rag_chain():
         return None
 
     # 1. Veri Yükleme ve Hazırlama
+    # 1. Veri Yükleme ve Hazırlama
+try:
+    if not os.path.exists(CSV_FILE):
+        st.error(f"Kritik hata: '{CSV_FILE}' dosyası bulunamadı.")
+        return None
+        
+    df = pd.read_csv(CSV_FILE)
+    
+    # TEST İÇİN: Sadece ilk 50 futbolcuyu al
+    df = df.head(50)  # BU SATIRI EKLE
+    
+    df_clean = df[[
+        'Name', 'Club', 'Overall', 'Pace', 'Shooting', 
+        'Passing', 'Dribbling', 'Defending', 'Physicality'
+    ]].copy()
+
     try:
         if not os.path.exists(CSV_FILE):
             st.error(f"Kritik hata: '{CSV_FILE}' dosyası bulunamadı.")
