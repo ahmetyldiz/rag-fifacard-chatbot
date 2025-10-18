@@ -6,3 +6,5 @@ langchain-community==0.2.9
 langchain-google-genai==1.1.2
 google-cloud-aiplatform
 chromadb==0.5.4
+google-generativeai
+pydantic
