@@ -4,5 +4,6 @@ langchain
 langchain-core
 langchain-community
 langchain-google-genai
-google-genai
+google-api-core # Google API bağımlılıkları için
+pydantic # LangChain ve Pydantic modelleri için
 chromadb
