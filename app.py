@@ -69,21 +69,66 @@ def setup_rag_chain():
         return None
 
     # 2. Vektör İndeksleme
+    # 2. Vektör İndeksleme veya Yükleme
     try:
         embedding_function = GoogleGenerativeAIEmbeddings(
             model="models/embedding-001",
             google_api_key=GEMINI_KEY
         )
+        
+        # EĞER VEKTÖR DB ZATEN VARSA, SADECE YÜKLE
+        if os.path.exists(PERSIST_DIRECTORY) and os.listdir(PERSIST_DIRECTORY):
+            st.info("Mevcut vektör veritabanı yükleniyor...")
+            vectorstore = Chroma(
+                persist_directory=PERSIST_DIRECTORY,
+                embedding_function=embedding_function
+            )
+        else:
+            # YOKSA YENİ OLUŞTUR
+            st.info("Yeni vektör veritabanı oluşturuluyor...")
+            
+            # 1. Veri Yükleme
+            if not os.path.exists(CSV_FILE):
+                st.error(f"'{CSV_FILE}' dosyası bulunamadı.")
+                return None
+                
+            df = pd.read_csv(CSV_FILE)
+            df = df.head(100)  # İlk 100 futbolcu
+            
+            df_clean = df[[
+                'Name', 'Club', 'Overall', 'Pace', 'Shooting', 
+                'Passing', 'Dribbling', 'Defending', 'Physicality'
+            ]].copy()
 
-        vectorstore = Chroma.from_documents(
-            documents=data_documents, 
-            embedding=embedding_function, 
-            persist_directory=PERSIST_DIRECTORY
-        )
+            df_clean.fillna({
+                'Overall': 0, 'Pace': 0, 'Shooting': 0, 
+                'Passing': 0, 'Dribbling': 0, 'Defending': 0, 'Physicality': 0
+            }, inplace=True)
+            df_clean.fillna('Bilinmiyor', inplace=True)
+
+            def create_player_chunk(row):
+                chunk = (
+                    f"Futbolcu Adı: {row['Name']}. Kulüp: {row['Club']}. "
+                    f"Genel Reyting (OVR): {int(row['Overall'])}. "
+                    f"Temel FIFA Kart İstatistikleri: "
+                    f"Hız (PAC): {int(row['Pace'])}, Şut (SHO): {int(row['Shooting'])}, "
+                    f"Pas (PAS): {int(row['Passing'])}, Dribbling (DRI): {int(row['Dribbling'])}, "
+                    f"Defans (DEF): {int(row['Defending'])}, Fizik (PHY): {int(row['Physicality'])}."
+                )
+                return chunk
+
+            df_clean['rag_chunk'] = df_clean.apply(create_player_chunk, axis=1)
+            data_documents = [Document(page_content=chunk) for chunk in df_clean['rag_chunk'].tolist()]
+            
+            vectorstore = Chroma.from_documents(
+                documents=data_documents, 
+                embedding=embedding_function, 
+                persist_directory=PERSIST_DIRECTORY
+            )
+            
     except Exception as e:
-        st.error(f"Embedding oluşturma hatası: {e}")
+        st.error(f"Vektör DB hatası: {e}")
         return None
-    
     # 3. RAG Zinciri Kurulumu
     try:
         llm = ChatGoogleGenerativeAI(
