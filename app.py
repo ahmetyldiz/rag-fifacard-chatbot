@@ -29,27 +29,15 @@ def setup_rag_chain():
         return None
 
     # 1. Veri Yükleme ve Hazırlama
-try:
-    if not os.path.exists(CSV_FILE):
-        st.error(f"Kritik hata: '{CSV_FILE}' dosyası bulunamadı.")
-        return None
-        
-    df = pd.read_csv(CSV_FILE)
-    
-    # TEST İÇİN: Sadece ilk 50 futbolcuyu al
-    df = df.head(50)  # BU SATIRI EKLE
-    
-    df_clean = df[[
-        'Name', 'Club', 'Overall', 'Pace', 'Shooting', 
-        'Passing', 'Dribbling', 'Defending', 'Physicality'
-    ]].copy()
-
     try:
         if not os.path.exists(CSV_FILE):
             st.error(f"Kritik hata: '{CSV_FILE}' dosyası bulunamadı.")
             return None
             
         df = pd.read_csv(CSV_FILE)
+        
+        # TEST İÇİN: Sadece ilk 100 futbolcuyu al
+        df = df.head(100)
         
         df_clean = df[[
             'Name', 'Club', 'Overall', 'Pace', 'Shooting', 
@@ -81,25 +69,30 @@ try:
         return None
 
     # 2. Vektör İndeksleme
-    embedding_function = GoogleGenerativeAIEmbeddings(
-        model="text-embedding-004",
-        google_api_key=GEMINI_KEY
-    )
+    try:
+        embedding_function = GoogleGenerativeAIEmbeddings(
+            model="models/embedding-001",
+            google_api_key=GEMINI_KEY
+        )
 
-    vectorstore = Chroma.from_documents(
-        documents=data_documents, 
-        embedding=embedding_function, 
-        persist_directory=PERSIST_DIRECTORY
-    )
+        vectorstore = Chroma.from_documents(
+            documents=data_documents, 
+            embedding=embedding_function, 
+            persist_directory=PERSIST_DIRECTORY
+        )
+    except Exception as e:
+        st.error(f"Embedding oluşturma hatası: {e}")
+        return None
     
     # 3. RAG Zinciri Kurulumu
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.2,
-        google_api_key=GEMINI_KEY
-    )
-    
-    prompt_template = """Sen, futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın.
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-1.5-flash",
+            temperature=0.2,
+            google_api_key=GEMINI_KEY
+        )
+        
+        prompt_template = """Sen, futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın.
 Aşağıdaki 'context' kısmında verilen futbolcu istatistiklerini kullanarak,
 SADECE o verilere dayanarak, net ve görsel olarak tasarlanmış bir FIFA kartı görünümünde cevap oluştur.
 Kesinlikle kartta yer almayan, başka bir bilgi ekleme.
@@ -111,15 +104,18 @@ Soru: {input}
 
 Cevabın:
 """
-    
-    prompt = ChatPromptTemplate.from_template(prompt_template)
-    document_chain = create_stuff_documents_chain(llm, prompt)
-    retrieval_chain = create_retrieval_chain(
-        vectorstore.as_retriever(search_kwargs={"k": 1}),
-        document_chain
-    )
-    
-    return retrieval_chain
+        
+        prompt = ChatPromptTemplate.from_template(prompt_template)
+        document_chain = create_stuff_documents_chain(llm, prompt)
+        retrieval_chain = create_retrieval_chain(
+            vectorstore.as_retriever(search_kwargs={"k": 1}),
+            document_chain
+        )
+        
+        return retrieval_chain
+    except Exception as e:
+        st.error(f"RAG zinciri kurulum hatası: {e}")
+        return None
 
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
