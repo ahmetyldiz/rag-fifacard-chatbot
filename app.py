@@ -7,6 +7,9 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGener
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.schema import Document
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
 
 # ------------------- API ANAHTARI VE YAPILANDIRMA -------------------
 
@@ -73,36 +76,36 @@ def setup_rag_chain():
         persist_directory=PERSIST_DIRECTORY
     )
     
-    # 3. RAG Zinciri Kurulumu
+    # 3. RAG Zinciri Kurulumu (YENİ YÖNTEM)
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash", 
+        model="gemini-2.0-flash-exp",
         temperature=0.2,
         google_api_key=GEMINI_KEY
     )
-
+    
     prompt_template = """
-    Sen, futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın. 
-    Aşağıdaki 'context' kısmında verilen futbolcu istatistiklerini kullanarak, 
+    Sen, futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın.
+    Aşağıdaki 'context' kısmında verilen futbolcu istatistiklerini kullanarak,
     SADECE o verilere dayanarak, net ve görsel olarak tasarlanmış bir FIFA kartı görünümünde cevap oluştur.
     Kesinlikle kartta yer almayan, başka bir bilgi ekleme.
-
+    
     Context:
     {context}
-
-    Soru: {question}
-
+    
+    Soru: {input}
+    
     Cevabın:
     """
-    PROMPT = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=vectorstore.as_retriever(search_kwargs={"k": 1}), 
-        return_source_documents=False, # Web arayüzünde kaynak göstermiyoruz
-        chain_type_kwargs={"prompt": PROMPT}
+    
+    prompt = ChatPromptTemplate.from_template(prompt_template)
+    
+    document_chain = create_stuff_documents_chain(llm, prompt)
+    retrieval_chain = create_retrieval_chain(
+        vectorstore.as_retriever(search_kwargs={"k": 1}),
+        document_chain
     )
-    return qa_chain
+    
+    return retrieval_chain
 
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
@@ -130,16 +133,17 @@ if qa_chain:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-        # Chatbot cevabını al ve göster
-        with st.chat_message("assistant"):
-            with st.spinner("FIFA Kartı Oluşturuluyor..."):
-                try:
-                    # RAG zincirini çalıştırma
-                    response = qa_chain.invoke({"query": prompt})
-                    full_response = response['result']
-                    st.markdown(full_response)
-                except Exception as e:
-                    st.error(f"Sorgu hatası oluştu: {e}")
-                    full_response = "Sorgu başarısız oldu."
+       # Chatbot cevabını al ve göster (Streamlit arayüz kısmı)
+with st.chat_message("assistant"):
+    with st.spinner("FIFA Kartı Oluşturuluyor..."):
+        try:
+            # RAG zincirini çalıştırma (YENİ YÖNTEM)
+            response = qa_chain.invoke({"input": prompt})
+            full_response = response['answer']
+            st.markdown(full_response)
+        except Exception as e:
+            st.error(f"Sorgu hatası oluştu: {e}")
+            full_response = "Sorgu başarısız oldu."
+
                     
         st.session_state.messages.append({"role": "assistant", "content": full_response})
