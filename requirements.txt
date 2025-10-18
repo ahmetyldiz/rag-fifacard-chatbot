@@ -8,3 +8,4 @@ google-cloud-aiplatform
 chromadb==0.5.4
 google-generativeai
 pydantic
+tiktoken
