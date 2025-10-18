@@ -29,7 +29,6 @@ def setup_rag_chain():
         return None
 
     # 1. Veri Yükleme ve Hazırlama
-    # 1. Veri Yükleme ve Hazırlama
 try:
     if not os.path.exists(CSV_FILE):
         st.error(f"Kritik hata: '{CSV_FILE}' dosyası bulunamadı.")
