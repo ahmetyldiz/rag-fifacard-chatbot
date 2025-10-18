@@ -1,10 +1,23 @@
 pandas
 streamlit
+
+# SQLite support for ChromaDB
 pysqlite3-binary
-langchain
-langchain-core
-langchain-community
-langchain-google-genai
-google-generativeai
+
+# LangChain - Uyumlu versiyonlar
+langchain==0.2.16
+langchain-core==0.2.38
+langchain-community==0.2.16
+
+# Google AI - Güncel versiyon
+langchain-google-genai==2.0.0
+google-generativeai==0.8.3
+
+# ChromaDB
 chromadb==0.5.0
+
+# Pydantic - Açıkça belirt
+pydantic>=2.7.4,<3.0.0
+
+# Diğer gereksinimler
 tiktoken
