@@ -68,7 +68,7 @@ def setup_rag_chain():
 
     # 2. Vektör İndeksleme
     embedding_function = GoogleGenerativeAIEmbeddings(
-        model="text-embedding-004",
+        model="models/text-embedding-004",
         google_api_key=GEMINI_KEY
     )
 
@@ -80,7 +80,7 @@ def setup_rag_chain():
     
     # 3. RAG Zinciri Kurulumu (YENİ YÖNTEM)
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.0-flash-exp",
+        model="gemini-1.5-flash",
         temperature=0.2,
         google_api_key=GEMINI_KEY
     )
@@ -135,17 +135,16 @@ if qa_chain:
         with st.chat_message("user"):
             st.markdown(prompt)
 
-       # Chatbot cevabını al ve göster (Streamlit arayüz kısmı)
-with st.chat_message("assistant"):
-    with st.spinner("FIFA Kartı Oluşturuluyor..."):
-        try:
-            # RAG zincirini çalıştırma (YENİ YÖNTEM)
-            response = qa_chain.invoke({"input": prompt})
-            full_response = response['answer']
-            st.markdown(full_response)
-        except Exception as e:
-            st.error(f"Sorgu hatası oluştu: {e}")
-            full_response = "Sorgu başarısız oldu."
-
-                    
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+        # Chatbot cevabını al ve göster (DÜZELTİLDİ: if bloğunun içinde!)
+        with st.chat_message("assistant"):
+            with st.spinner("FIFA Kartı Oluşturuluyor..."):
+                try:
+                    # RAG zincirini çalıştırma (YENİ YÖNTEM)
+                    response = qa_chain.invoke({"input": prompt})
+                    full_response = response['answer']
+                    st.markdown(full_response)
+                except Exception as e:
+                    st.error(f"Sorgu hatası oluştu: {e}")
+                    full_response = "Sorgu başarısız oldu."
+                        
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
