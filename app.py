@@ -67,10 +67,12 @@ def setup_rag_chain():
         return None
 
     # 2. Vektör İndeksleme
-    embedding_function = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=GEMINI_KEY
-    )
+    # 2. Vektör İndeksleme
+embedding_function = GoogleGenerativeAIEmbeddings(
+    model="text-embedding-004",  
+    google_api_key=GEMINI_KEY
+)
+
 
     vectorstore = Chroma.from_documents(
         documents=data_documents, 
@@ -78,12 +80,13 @@ def setup_rag_chain():
         persist_directory=PERSIST_DIRECTORY
     )
     
-    # 3. RAG Zinciri Kurulumu (YENİ YÖNTEM)
-    llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
-        temperature=0.2,
-        google_api_key=GEMINI_KEY
-    )
+    # 3. RAG Zinciri Kurulumu
+llm = ChatGoogleGenerativeAI(
+    model="gemini-1.5-flash",  # "models/" ön eki KALDIR
+    temperature=0.2,
+    google_api_key=GEMINI_KEY
+)
+
     
     prompt_template = """
     Sen, futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın.
