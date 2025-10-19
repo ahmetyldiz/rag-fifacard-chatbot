@@ -1,21 +1,8 @@
-pandas
 streamlit
-pysqlite3-binary
-
-# LangChain - 0.2.x ailesi (uyumlu)
-langchain==0.2.16
-langchain-core==0.2.38
-langchain-community==0.2.16
-
-# Google AI - 1.x sürümü (langchain 0.2 ile uyumlu)
-langchain-google-genai==1.0.10
-google-generativeai==0.7.2
-
-# ChromaDB
-chromadb==0.5.0
-
-# Pydantic
-pydantic>=2.7.4,<3.0.0
-
-# Diğer
-tiktoken
+pandas
+langchain
+langchain-google-genai
+langchain-community
+chromadb
+python-dotenv
+google-generativeai
