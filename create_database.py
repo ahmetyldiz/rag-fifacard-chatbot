@@ -153,7 +153,7 @@ FIFA Kartı:
         
         # RAG zincirini oluştur
         retrieval_chain = create_retrieval_chain(
-            _vectordb.as_retriever(search_kwargs={"k": 1}),
+            _vectordb.as_retriever(search_kwargs={"k": 3}),
             document_chain
         )
         
