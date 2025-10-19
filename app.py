@@ -1,142 +1,254 @@
-"""df
-FIFA Futbolcu Veritabanı Oluşturma Scripti
-Bu script sadece bir kez çalıştırılmalıdır (veya DB bozulduğunda).
-"""
+# pysqlite3 sadece Streamlit Cloud için gerekli
+try:
+    __import__('pysqlite3')
+    import sys
+    sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+except ImportError:
+    pass  # Local'de çalışıyoruz, sorun yok
 
+import streamlit as st
 import os
-import sys
-import pandas as pd
-import time
-from langchain_google_genai import GoogleGenerativeAIEmbeddings
-from langchain_community.vectorstores import Chroma
-from langchain.schema import Document
+import shutil
 from dotenv import load_dotenv
+from langchain_community.vectorstores import Chroma
+from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain.chains import create_retrieval_chain
+from langchain.chains.combine_documents import create_stuff_documents_chain
+from langchain_core.prompts import ChatPromptTemplate
+from create_database import create_database
 
-# Konfigürasyon
+# .env dosyasını yükle
 load_dotenv()
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-CSV_FILE = 'male_players.csv'
+
+# ------------------- YAPILANDIRMA -------------------
+
+# API key'i çoklu kaynaktan al
+GEMINI_KEY = (
+    os.environ.get("GEMINI_API_KEY") or
+    st.secrets.get("GEMINI_API_KEY", None) or
+    None
+) 
 PERSIST_DIRECTORY = "./chroma_db"
 COLLECTION_NAME = "fifa-players"
-BATCH_SIZE = 100
-DELAY_BETWEEN_BATCHES = 2
 
-def create_player_chunk(row):
-    """Futbolcu verisini RAG için metin formatına çevirir."""
-    return (
-        f"Futbolcu Adı: {row['Name']}. Kulüp: {row['Club']}. "
-        f"Genel Reyting (OVR): {int(row['Overall'])}. "
-        f"Temel FIFA Kart İstatistikleri: "
-        f"Hız (PAC): {int(row['Pace'])}, Şut (SHO): {int(row['Shooting'])}, "
-        f"Pas (PAS): {int(row['Passing'])}, Dribbling (DRI): {int(row['Dribbling'])}, "
-        f"Defans (DEF): {int(row['Defending'])}, Fizik (PHY): {int(row['Physicality'])}."
-    )
+# ------------------- VERITABANI YÜKLEME -------------------
 
-def create_database():
-    """Vektör veritabanını oluşturur."""
+@st.cache_resource(show_spinner=False)
+def load_database():
+    """
+    Vektör veritabanını yükler.
+    Eğer yoksa veya hatalıysa otomatik oluşturur.
+    """
     
     if not GEMINI_KEY:
-        print("❌ HATA: GEMINI_API_KEY bulunamadı!")
-        sys.exit(1)
+        st.error("❌ API Anahtarı bulunamadı. 'GEMINI_API_KEY' ayarlayın.")
+        return None
     
-    if not os.path.exists(CSV_FILE):
-        print(f"❌ HATA: '{CSV_FILE}' dosyası bulunamadı!")
-        sys.exit(1)
-    
-    print("=" * 60)
-    print("⚽ FIFA FUTBOLCU VERİTABANI OLUŞTURULUYOR")
-    print("=" * 60)
-    
-    # 1. Veriyi Yükle
-    print("\n📂 1/3: CSV dosyası yükleniyor...")
-    df = pd.read_csv(CSV_FILE)
-    print(f"✅ {len(df)} futbolcu bulundu!")
-    
-    # TEST İÇİN: Sadece ilk 500 futbolcu (bu satırı kaldırarak tamamını kullanabilirsiniz)
-    print(f"✅ TEST MODU: {len(df)} futbolcu kullanılacak")
-    
-    # Gerekli kolonları seç ve temizle
-    df_clean = df[[
-        'Name', 'Club', 'Overall', 'Pace', 'Shooting', 
-        'Passing', 'Dribbling', 'Defending', 'Physicality'
-    ]].copy()
-    
-    df_clean.fillna({
-        'Overall': 0, 'Pace': 0, 'Shooting': 0, 
-        'Passing': 0, 'Dribbling': 0, 'Defending': 0, 'Physicality': 0
-    }, inplace=True)
-    df_clean.fillna('Bilinmiyor', inplace=True)
-    
-    # 2. Document'leri Oluştur
-    print("\n📝 2/3: Futbolcu verileri hazırlanıyor...")
-    df_clean['rag_chunk'] = df_clean.apply(create_player_chunk, axis=1)
-    data_documents = [
-        Document(page_content=chunk) 
-        for chunk in df_clean['rag_chunk'].tolist()
-    ]
-    print(f"✅ {len(data_documents)} futbolcu dokümana dönüştürüldü!")
-    
-    # 3. Embedding ve Vektör DB Oluştur
-    print("\n🔄 3/3: Vektör veritabanı oluşturuluyor...")
-    print(f"⚠️  Bu işlem ~{len(data_documents) * 0.5 / 60:.1f} dakika sürebilir...")
-    
+    # Embedding fonksiyonu
     embedding_function = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
+        model="models/text-embedding-004",  # Daha yeni model
         google_api_key=GEMINI_KEY
     )
     
-    # Batch işleme
-    total_docs = len(data_documents)
-    vectorstore = None
-    
-    for i in range(0, total_docs, BATCH_SIZE):
-        batch = data_documents[i:i + BATCH_SIZE]
-        batch_num = (i // BATCH_SIZE) + 1
-        total_batches = (total_docs + BATCH_SIZE - 1) // BATCH_SIZE
+    # Veritabanı var mı kontrol et
+    if not os.path.exists(PERSIST_DIRECTORY) or not os.listdir(PERSIST_DIRECTORY):
+        st.warning("🔄 Vektör veritabanı bulunamadı. Oluşturuluyor...")
+        st.info("⏳ **Bu işlem 10-30 dakika sürebilir.** Lütfen sayfayı kapatmayın!")
         
         try:
-            if vectorstore is None:
-                # İlk batch
-                vectorstore = Chroma.from_documents(
-                    documents=batch,
-                    embedding=embedding_function,
-                    persist_directory=PERSIST_DIRECTORY,
-                    collection_name=COLLECTION_NAME
-                )
-            else:
-                # Sonraki batch'ler
-                vectorstore.add_documents(batch)
-            
-            progress = (i + len(batch)) / total_docs * 100
-            print(f"📊 Batch {batch_num}/{total_batches} ✅ ({progress:.1f}% tamamlandı)")
-            
-            # Rate limit'i aşmamak için bekle
-            if i + BATCH_SIZE < total_docs:
-                time.sleep(DELAY_BETWEEN_BATCHES)
-                
+            # Veritabanını oluştur
+            with st.spinner("📊 Futbolcular indeksleniyor..."):
+                create_database()
+            st.success("✅ Veritabanı başarıyla oluşturuldu!")
+            st.rerun()  # Sayfayı yenile
         except Exception as e:
-            if "429" in str(e) or "quota" in str(e).lower():
-                print(f"⏳ Rate limit! 60 saniye bekleniyor...")
-                time.sleep(60)
-                # Tekrar dene
-                if vectorstore is None:
-                    vectorstore = Chroma.from_documents(
-                        documents=batch,
-                        embedding=embedding_function,
-                        persist_directory=PERSIST_DIRECTORY,
-                        collection_name=COLLECTION_NAME
-                    )
-                else:
-                    vectorstore.add_documents(batch)
-            else:
-                print(f"❌ HATA: {e}")
-                raise e
+            st.error(f"❌ Veritabanı oluşturma hatası: {e}")
+            return None
     
-    print("\n" + "=" * 60)
-    print("🎉 VERİTABANI BAŞARIYLA OLUŞTURULDU!")
-    print(f"📁 Konum: {PERSIST_DIRECTORY}")
-    print(f"📊 Toplam Futbolcu: {len(data_documents)}")
-    print("=" * 60)
+    # Veritabanını yükle
+    try:
+        vectordb = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embedding_function,
+            collection_name=COLLECTION_NAME
+        )
+        return vectordb
+        
+    except Exception as e:
+        st.error(f"⚠️ Veritabanı yükleme hatası: {e}")
+        st.warning("🔧 Veritabanı temizleniyor ve yeniden oluşturuluyor...")
+        
+        try:
+            # Bozuk veritabanını sil
+            if os.path.exists(PERSIST_DIRECTORY):
+                shutil.rmtree(PERSIST_DIRECTORY)
+            
+            # Yeniden oluştur
+            with st.spinner("📊 Yeniden oluşturuluyor..."):
+                create_database()
+            
+            # Tekrar yükle
+            vectordb = Chroma(
+                persist_directory=PERSIST_DIRECTORY,
+                embedding_function=embedding_function,
+                collection_name=COLLECTION_NAME
+            )
+            st.success("✅ Veritabanı başarıyla yenilendi!")
+            st.rerun()
+            return vectordb
+            
+        except Exception as e2:
+            st.error(f"❌ Yeniden oluşturma başarısız: {e2}")
+            return None
 
-if __name__ == "__main__":
-    create_database()
+# ------------------- RAG ZİNCİRİ KURULUMU -------------------
+
+@st.cache_resource(show_spinner=False)
+def setup_rag_chain(_vectordb):
+    """RAG zincirini kurar."""
+    
+    if _vectordb is None:
+        return None
+    
+    try:
+        # LLM'i yapılandır
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash-exp",
+            temperature=0.2,
+            google_api_key=GEMINI_KEY
+        )
+        
+        # İYİLEŞTİRİLMİŞ PROMPT - daha açık ve esnek
+        prompt_template = """Sen futbolcu istatistiklerini FIFA kartı formatında sunan bir asistansın.
+
+Aşağıda 'context' kısmında futbolcu bilgileri var. Bu bilgileri kullanarak FIFA kartı(ları) oluştur.
+
+**ÖNEMLİ TALİMATLAR:**
+- Context'te birden fazla futbolcu varsa, hepsinin kartını oluştur
+- Context'te sadece 1 futbolcu varsa, onun kartını göster
+- Eğer aranan futbolcu context'te yoksa, "Üzgünüm, [futbolcu adı] veritabanında bulunamadı" de
+
+**FIFA Kartı Formatı:**
+━━━━━━━━━━━━━━━━━━━━
+⚽ **[FUTBOLCU ADI]**
+━━━━━━━━━━━━━━━━━━━━
+🏆 **OVR:** [Genel Puan]
+🏟️ **Kulüp:** [Kulüp Adı]
+
+📊 **İSTATİSTİKLER:**
+├─ ⚡ Hız: [PAC]
+├─ 🎯 Şut: [SHO]
+├─ 🎨 Pas: [PAS]
+├─ ⚽ Dribling: [DRI]
+├─ 🛡️ Defans: [DEF]
+└─ 💪 Fizik: [PHY]
+━━━━━━━━━━━━━━━━━━━━
+
+Context:
+{context}
+
+Kullanıcı Sorusu: {input}
+
+Cevap:"""
+        
+        prompt = ChatPromptTemplate.from_template(prompt_template)
+        document_chain = create_stuff_documents_chain(llm, prompt)
+        
+        # RETRIEVAL'I İYİLEŞTİR: k=3 yap ve similarity threshold ekle
+        retrieval_chain = create_retrieval_chain(
+            _vectordb.as_retriever(
+                search_type="similarity",  # Similarity search kullan
+                search_kwargs={
+                    "k": 3,  # 1 yerine 3 sonuç getir
+                }
+            ),
+            document_chain
+        )
+        
+        return retrieval_chain
+        
+    except Exception as e:
+        st.error(f"❌ RAG zinciri kurulum hatası: {e}")
+        return None
+
+
+# ------------------- STREAMLIT ARAYÜZÜ -------------------
+
+st.set_page_config(page_title="⚽ FIFA Kartı Chatbot", layout="wide")
+
+# Header
+st.title("⚽ FIFA Kartı Oluşturucu")
+st.markdown("🔍 Futbolcu adı girin ve FIFA kartını görün!")
+
+# Sidebar bilgi
+with st.sidebar:
+    st.header("📖 Kullanım Kılavuzu")
+    st.markdown("""
+    **Nasıl Kullanılır?**
+    1. Aşağıdaki chat kutusuna futbolcu adı yazın
+    2. Enter'a basın
+    3. FIFA kartını görüntüleyin!
+    
+    **Örnek Aramalar:**
+    - Lionel Messi
+    - Cristiano Ronaldo
+    - Kylian Mbappé
+    
+    ---
+    """)
+    
+    st.header("⚙️ Sistem Durumu")
+    if os.path.exists(PERSIST_DIRECTORY) and os.listdir(PERSIST_DIRECTORY):
+        st.success("✅ Vektör DB Hazır")
+    else:
+        st.warning("⏳ İlk Kurulum Gerekli")
+    
+    st.markdown("---")
+    st.caption("🔧 **Sorun mu var?**")
+    if st.button("🗑️ Veritabanını Sıfırla"):
+        if os.path.exists(PERSIST_DIRECTORY):
+            shutil.rmtree(PERSIST_DIRECTORY)
+            st.success("✅ Veritabanı silindi. Sayfa yenilenecek...")
+            st.rerun()
+
+# Veritabanını yükle
+vectordb = load_database()
+
+if vectordb:
+    # RAG zincirini kur
+    qa_chain = setup_rag_chain(vectordb)
+    
+    if qa_chain:
+        # Chat geçmişi
+        if "messages" not in st.session_state:
+            st.session_state.messages = []
+        
+        # Önceki mesajları göster
+        for message in st.session_state.messages:
+            with st.chat_message(message["role"]):
+                st.markdown(message["content"])
+        
+        # Kullanıcı inputu
+        if prompt := st.chat_input("Örnek: Lionel Messi, Cristiano Ronaldo..."):
+            # Kullanıcı mesajını kaydet ve göster
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+            
+            # Asistan cevabı
+            with st.chat_message("assistant"):
+                with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
+                    try:
+                        response = qa_chain.invoke({"input": prompt})
+                        full_response = response['answer']
+                        st.markdown(full_response)
+                    except Exception as e:
+                        st.error(f"❌ Hata: {e}")
+                        full_response = "Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
+            
+            # Asistan mesajını kaydet
+            st.session_state.messages.append({"role": "assistant", "content": full_response})
+    else:
+        st.error("❌ RAG zinciri kurulamadı.")
+else:
+    st.error("❌ Veritabanı yüklenemedi. Lütfen sayfayı yenileyin.")
