@@ -65,20 +65,33 @@ COLLECTION_NAME = "fifa-players"
 
 # ------------------- CSV YÜKLEME -------------------
 
-@st.cache_data(show_spinner=False)
-def load_csv_data():
-    """CSV dosyasını cache'le - tüm uygulamada kullanılacak"""
-    csv_path = 'male_players.csv'
-    if os.path.exists(csv_path):
-        try:
-            df = pd.read_csv(csv_path)
-            return df
-        except Exception as e:
-            st.error(f"CSV yükleme hatası: {e}")
-            return None
-    else:
-        st.error(f"❌ '{csv_path}' dosyası bulunamadı!")
+@st.cache_resource(show_spinner=False)
+def load_database():
+    if not GEMINI_KEY:
+        st.error("❌ API Anahtarı bulunamadı.")
         return None
+    
+    embedding_function = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004",
+        google_api_key=GEMINI_KEY
+    )
+    
+    # Schema hatası varsa CSV fallback kullan (DB'siz çalışacak)
+    try:
+        from langchain_community.vectorstores import Chroma
+        vectordb = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embedding_function,
+            collection_name=COLLECTION_NAME
+        )
+        # Test
+        vectordb.similarity_search("test", k=1)
+        return vectordb
+    except Exception as e:
+        st.warning(f"⚠️ Veritabanı yüklenemedi: {e}")
+        st.info("💡 Sadece CSV fallback modu çalışacak")
+        return None
+
 
 # Global CSV data
 csv_df = load_csv_data()
