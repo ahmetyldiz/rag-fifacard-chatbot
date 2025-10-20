@@ -154,7 +154,7 @@ def load_database():
 
 st.markdown("""
 <style>
-    /* Sidebar'ı zorla göster */
+    /* Sidebar */
     section[data-testid="stSidebar"] {
         width: 300px !important;
         min-width: 300px !important;
@@ -164,7 +164,6 @@ st.markdown("""
         width: 300px !important;
     }
     
-    /* Sidebar arka plan */
     [data-testid="stSidebar"] {
         background-color: #1e1e1e;
     }
@@ -210,7 +209,6 @@ st.markdown("""
     }
 </style>
 """, unsafe_allow_html=True)
-
 
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
@@ -264,9 +262,6 @@ with st.sidebar:
     """)
     
     st.markdown("---")
-    show_debug = st.checkbox("🐛 Debug Modu", value=False)
-    
-    st.markdown("---")
     st.caption("🤖 LLM-powered search with CSV fallback")
 
 # ------------------- CHAT -------------------
@@ -298,7 +293,7 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
     
     with st.chat_message("assistant"):
         with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
-            time.sleep(0.3)  # Küçük animasyon için
+            time.sleep(0.3)
             
             try:
                 if processed_query.startswith("**COMPARE:"):
@@ -320,10 +315,6 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         df_clean = csv_df.dropna(subset=[stat_name])
                         best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
                         
-                        if show_debug:
-                            st.info(f"🔍 Debug: '{prompt}' → '{processed_query}' → Stat: {stat_name}")
-                        
-                        # Profesyonel kart tasarımı
                         full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -390,10 +381,6 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         if len(matching) > 0:
                             best = matching.iloc[0]
                             
-                            if show_debug:
-                                st.info(f"🔍 '{prompt}' → '{processed_query}'")
-                            
-                            # Profesyonel kart tasarımı
                             full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -449,9 +436,6 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                 
             except Exception as e:
                 st.error(f"❌ Hata: {e}")
-                import traceback
-                if show_debug:
-                    st.code(traceback.format_exc())
                 full_response_text = "Üzgünüm, bir hata oluştu."
     
     st.session_state.messages.append({"role": "assistant", "content": full_response_text})
