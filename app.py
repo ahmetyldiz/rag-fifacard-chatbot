@@ -353,11 +353,21 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         "dribbling": ("Dribbling", "Dribling")
                     }
                     
-                    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
+                    # Stat mapping'den değerleri al
+                    if compare_type in stat_mapping:
+                        stat_name, stat_label = stat_mapping[compare_type]
+                    else:
+                        stat_name, stat_label = "Overall", "Overall"
                     
                     if csv_df is not None:
-                        df_clean = csv_df.dropna(subset=[stat_name])
-                        best = df_clean.sort_values(by=stat_name, ascending=sort_ascending).iloc[0]
+                        # Debug: Sütun adlarını kontrol et
+                        if stat_name not in csv_df.columns:
+                            available_stats = [col for col in csv_df.columns if any(s in col.lower() for s in ['pace', 'shoot', 'pass', 'dribbl', 'defend', 'physic', 'overall'])]
+                            full_response_text = f"❌ '{stat_name}' sütunu bulunamadı. Mevcut sütunlar: {', '.join(available_stats[:10])}"
+                            st.error(full_response_text)
+                        else:
+                            df_clean = csv_df.dropna(subset=[stat_name])
+                            best = df_clean.sort_values(by=stat_name, ascending=sort_ascending).iloc[0]
                         
                         # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
                         full_response_text = f"⚽ **{best['Name']}** - {label_prefix} {stat_label}: **{int(best[stat_name])}** (Overall: {int(best['Overall'])})"
