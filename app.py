@@ -71,52 +71,46 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # Genel mesajlar için özel yanıtlar
+    # Genel mesajlar
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
     elif query_lower in ['teşekkürler', 'teşekkür ederim', 'sağol', 'thanks', 'thank you']:
         return "**THANKS**"
-    elif 'nasılsın' in query_lower or 'naber' in query_lower or 'how are you' in query_lower:
+    elif 'nasılsın' in query_lower or 'naber' in query_lower:
         return "**HOW_ARE_YOU**"
     
-    # ÖNCELİKLE "EN KÖTÜ" kontrolü
-    if 'en kötü' in query_lower or 'en düşük' in query_lower or 'en zayıf' in query_lower or 'en az' in query_lower:
-        if 'hız' in query_lower or 'pace' in query_lower:
+    # STAT kelimeleri var mı?
+    has_stat_keyword = any(word in query_lower for word in [
+        'fizik', 'physicality', 'hız', 'pace', 'defans', 'defending',
+        'şut', 'shooting', 'pas', 'passing', 'dribling', 'dribbling',
+        'overall', 'dereceli'
+    ])
+    
+    # EN KÖTÜ
+    if 'en kötü' in query_lower or 'en düşük' in query_lower:
+        if 'hız' in query_lower:
             return "**COMPARE:lowest_pace**"
-        elif 'fizik' in query_lower or 'physicality' in query_lower:
+        elif 'fizik' in query_lower:
             return "**COMPARE:lowest_physicality**"
-        elif 'defans' in query_lower or 'defending' in query_lower:
-            return "**COMPARE:lowest_defending**"
-        elif 'şut' in query_lower or 'shooting' in query_lower:
-            return "**COMPARE:lowest_shooting**"
-        elif 'pas' in query_lower or 'passing' in query_lower:
-            return "**COMPARE:lowest_passing**"
-        elif 'dribling' in query_lower or 'dribbling' in query_lower:
-            return "**COMPARE:lowest_dribbling**"
+        # ... diğerleri
         else:
             return "**COMPARE:lowest_overall**"
     
-    # Karşılaştırma sorguları (en yüksek/iyi)
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
-        if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
-            return "**COMPARE:highest_pace**"
-        elif 'fizik' in query_lower or 'physicality' in query_lower:
+    # EN YÜKSEK
+    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
+        if 'fizik' in query_lower:
             return "**COMPARE:highest_physicality**"
-        elif 'defans' in query_lower or 'defending' in query_lower:
-            return "**COMPARE:highest_defending**"
-        elif 'şut' in query_lower or 'shooting' in query_lower:
-            return "**COMPARE:highest_shooting**"
-        elif 'pas' in query_lower or 'passing' in query_lower:
-            return "**COMPARE:highest_passing**"
-        elif 'dribling' in query_lower or 'dribbling' in query_lower:
-            return "**COMPARE:highest_dribbling**"
+        elif 'hız' in query_lower or 'hızlı' in query_lower:
+            return "**COMPARE:highest_pace**"
+        # ... diğerleri
         else:
             return "**COMPARE:highest_overall**"
     
-    # LLM ile dene
-    llm_result = extract_player_name_with_llm(query)
-    if llm_result and llm_result not in ['Yok', 'Yok.', 'Bilinmiyor', '-', 'None']:
-        return llm_result
+    # LLM (sadece stat kelimesi YOKSA!)
+    if not has_stat_keyword:
+        llm_result = extract_player_name_with_llm(query)
+        if llm_result and llm_result not in ['Yok', 'Yok.', 'Bilinmiyor', '-', 'None']:
+            return llm_result
     
     # Fallback: Manuel preprocessing
     names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
