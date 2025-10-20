@@ -22,16 +22,16 @@ from langchain_core.prompts import ChatPromptTemplate
 # ------------------- PREPROCESSING -------------------
 
 def preprocess_query(query):
-    """Gelişmiş preprocessing"""
+    """LLM-powered preprocessing"""
     query_lower = query.lower()
     
-    # Karşılaştırma sorguları
+    # Basit karşılaştırma sorguları (LLM gereksiz)
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir']):
-        if 'hız' in query_lower or 'pace' in query_lower:
+        if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
         elif 'defans' in query_lower or 'defending' in query_lower:
             return "**COMPARE:highest_defending**"
-        elif 'fizik' in query_lower or 'physicality' in query_lower:
+        elif 'fizik' in query_lower or 'physicality' in query_lower or 'fizikli' in query_lower:
             return "**COMPARE:highest_physicality**"
         elif 'şut' in query_lower or 'shooting' in query_lower:
             return "**COMPARE:highest_shooting**"
@@ -42,26 +42,53 @@ def preprocess_query(query):
         else:
             return "**COMPARE:highest_overall**"
     
-    # Büyük harfli isim varsa al
+    # LLM ile futbolcu adı çıkarma
+    if GEMINI_KEY:
+        try:
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.0-flash-exp",
+                temperature=0,
+                google_api_key=GEMINI_KEY
+            )
+            
+            prompt = f"""Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma, sadece ismi yaz.
+
+Cümle: {query}
+
+Futbolcu adı:"""
+            
+            response = llm.invoke(prompt)
+            player_name = response.content.strip()
+            
+            # LLM çok uzun cevap verdiyse fallback
+            if len(player_name) > 30:
+                return query.capitalize()
+            
+            return player_name
+            
+        except Exception as e:
+            st.warning(f"⚠️ LLM preprocessing hatası: {e}")
+            # Fallback: manuel preprocessing
+            pass
+    
+    # Fallback: manuel preprocessing
     names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
     if names:
         return names[0]
     
-    # Türkçe ekleri agresif temizle
     result = query_lower
     suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
                 "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
     for suffix in suffixes:
         result = result.replace(suffix, "")
     
-    # Gereksiz kelimeleri temizle
     stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
     for word in stop_words:
         result = result.replace(word, "")
     
-    # İlk kelimeyi al ve capitalize
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
+
 
 # ------------------- YAPILANDIRMA -------------------
 
