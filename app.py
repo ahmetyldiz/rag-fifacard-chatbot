@@ -226,8 +226,16 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                     stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
                     
                     if csv_df is not None:
-                        df_clean = csv_df.dropna(subset=[stat_name])
-                        best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
+    # Önce exact match
+    matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
+    
+    # Bulamazsa normalized search
+    if len(matching) == 0:
+        # "Mbappe" → "Mbappe", "Mbappé" → "Mbappe" olarak normalize et
+        csv_df['Name_normalized'] = csv_df['Name'].apply(lambda x: unidecode(str(x)).lower())
+        processed_normalized = unidecode(processed_query).lower()
+        matching = csv_df[csv_df['Name_normalized'].str.contains(processed_normalized, na=False, regex=False)]
+
                         
                         full_response = f"""━━━━━━━━━━━━━━━━━━━━
 ⚽ **{best['Name']}**
