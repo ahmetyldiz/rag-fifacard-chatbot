@@ -33,9 +33,9 @@ def preprocess_query(query):
         return names[0]
     
     result = query.lower()
-    result = result.replace("'nın", "").replace("'nin", "").replace("nın", "").replace("nin", "")
-    result = result.replace("'ın", "").replace("'in", "").replace("ın", "").replace("in", "")
-    
+    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", "'un", "'ün", "un", "ün"]
+    for suffix in suffixes:
+        result = result.replace(suffix, "")
     for word in ['kartı', 'kart', 'göster', 'oluştur', 'getir', 'bana', 'fifa']:
         result = result.replace(word, " ")
     
