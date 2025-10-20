@@ -89,25 +89,39 @@ def preprocess_query(query):
     ])
     
     # EN KÖTÜ
-    if 'en kötü' in query_lower or 'en düşük' in query_lower:
-        if 'hız' in query_lower:
-            return "**COMPARE:lowest_pace**"
-        elif 'fizik' in query_lower:
-            return "**COMPARE:lowest_physicality**"
-        # ... diğerleri
-        else:
-            return "**COMPARE:lowest_overall**"
-    
-    # EN YÜKSEK
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
-        if 'fizik' in query_lower:
-            return "**COMPARE:highest_physicality**"
-        elif 'hız' in query_lower or 'hızlı' in query_lower:
-            return "**COMPARE:highest_pace**"
-        # ... diğerleri
-        else:
-            return "**COMPARE:highest_overall**"
-    
+if 'en kötü' in query_lower or 'en düşük' in query_lower:
+    if 'hız' in query_lower:
+        return "**COMPARE:lowest_pace**"
+    elif 'fizik' in query_lower:
+        return "**COMPARE:lowest_physicality**"
+    elif 'defans' in query_lower:
+        return "**COMPARE:lowest_defending**"
+    elif 'şut' in query_lower:
+        return "**COMPARE:lowest_shooting**"
+    elif 'pas' in query_lower:
+        return "**COMPARE:lowest_passing**"
+    elif 'dribl' in query_lower:
+        return "**COMPARE:lowest_dribbling**"
+    else:
+        return "**COMPARE:lowest_overall**"
+
+# EN YÜKSEK
+if any(word in query_lower for word in ['en yüksek', 'en iyi', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
+    if 'hız' in query_lower:  # "hızı", "hızlı", "hız" hepsini yakalar
+        return "**COMPARE:highest_pace**"
+    elif 'fizik' in query_lower:  # "fiziği", "fizik"
+        return "**COMPARE:highest_physicality**"
+    elif 'defans' in query_lower or 'savunma' in query_lower:
+        return "**COMPARE:highest_defending**"
+    elif 'şut' in query_lower:  # "şutu", "şut"
+        return "**COMPARE:highest_shooting**"
+    elif 'pas' in query_lower:  # "pası", "pas"
+        return "**COMPARE:highest_passing**"
+    elif 'dribl' in query_lower:  # "dribling", "dribbling"
+        return "**COMPARE:highest_dribbling**"
+    else:
+        return "**COMPARE:highest_overall**"
+
     # LLM (sadece stat kelimesi YOKSA!)
     if not has_stat_keyword:
         llm_result = extract_player_name_with_llm(query)
