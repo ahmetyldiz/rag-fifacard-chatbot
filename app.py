@@ -69,7 +69,13 @@ Futbolcu adı:"""
 def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
-    
+     # Genel mesajlar için özel yanıtlar
+    if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
+        return "**GREETING**"
+    elif query_lower in ['teşekkürler', 'teşekkür ederim', 'sağol', 'thanks', 'thank you']:
+        return "**THANKS**"
+    elif 'nasılsın' in query_lower or 'naber' in query_lower or 'how are you' in query_lower:
+        return "**HOW_ARE_YOU**"
     # ÖNCELİKLE "EN KÖTÜ" kontrolü
     if 'en kötü' in query_lower or 'en düşük' in query_lower or 'en zayıf' in query_lower or 'en az' in query_lower:
         if 'hız' in query_lower or 'pace' in query_lower:
