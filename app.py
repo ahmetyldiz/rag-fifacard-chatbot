@@ -37,81 +37,28 @@ RATE_LIMIT_SECONDS = 2  # Sorgular arası minimum süre
 
 # ------------------- LLM PREPROCESSING (CACHE'LENMİŞ) -------------------
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def extract_player_name_with_llm(query):
-    """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
+@st.cache_resource(show_spinner=False)
+def load_database():
     if not GEMINI_KEY:
-        return None
+        return None  # Sessizce None döndür
+    
+    embedding_function = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004",
+        google_api_key=GEMINI_KEY
+    )
     
     try:
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash-exp",
-            temperature=0,
-            max_output_tokens=50,  # Token limiti
-            google_api_key=GEMINI_KEY
+        vectordb = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embedding_function,
+            collection_name=COLLECTION_NAME
         )
-        
-        prompt = f"""Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma.
-
-Cümle: {query}
-
-Futbolcu adı:"""
-        
-        response = llm.invoke(prompt)
-        player_name = response.content.strip()
-        
-        # Çok uzunsa geçersiz
-        if len(player_name) > 30:
-            return None
-        
-        return player_name
-        
+        vectordb.similarity_search("test", k=1)
+        return vectordb
     except Exception as e:
+        # Sessizce None döndür (kullanıcı görmez)
         return None
 
-def preprocess_query(query):
-    """Hybrid preprocessing: LLM + Fallback"""
-    query_lower = query.lower()
-    
-    # Karşılaştırma sorguları (LLM gereksiz)
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir']):
-        if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
-            return "**COMPARE:highest_pace**"
-        elif 'defans' in query_lower or 'defending' in query_lower:
-            return "**COMPARE:highest_defending**"
-        elif 'fizik' in query_lower or 'physicality' in query_lower or 'fizikli' in query_lower:
-            return "**COMPARE:highest_physicality**"
-        elif 'şut' in query_lower or 'shooting' in query_lower:
-            return "**COMPARE:highest_shooting**"
-        elif 'pas' in query_lower or 'passing' in query_lower:
-            return "**COMPARE:highest_passing**"
-        elif 'dribling' in query_lower or 'dribbling' in query_lower:
-            return "**COMPARE:highest_dribbling**"
-        else:
-            return "**COMPARE:highest_overall**"
-    
-    # LLM ile dene (cache'li)
-    llm_result = extract_player_name_with_llm(query)
-    if llm_result:
-        return llm_result
-    
-    # Fallback: Manuel preprocessing
-    names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
-    if names:
-        return names[0]
-    
-    result = query_lower
-    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
-                "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
-    for suffix in suffixes:
-        result = result.replace(suffix, "")
-    
-    stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
-    for word in stop_words:
-        result = result.replace(word, "")
-    
-    result = result.strip().split()[0] if result.strip().split() else result
-    return result.capitalize()
 
 # ------------------- CSV YÜKLEME -------------------
 
