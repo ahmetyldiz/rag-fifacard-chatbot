@@ -70,11 +70,6 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # DEBUG PRINT
-    print(f"🔍 DEBUG: query_lower = '{query_lower}'")
-    print(f"🔍 'fizik' in query_lower: {'fizik' in query_lower}")
-    print(f"🔍 'oyuncu' in query_lower: {'oyuncu' in query_lower}")
-    
     # Genel mesajlar
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
@@ -318,6 +313,9 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
         with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
             time.sleep(0.3)
             
+            # Bu değişken her zaman atanacak
+            full_response_text = ""
+            
             try:
                 # GREETING kontrolü
                 if processed_query == "**GREETING**":
@@ -358,6 +356,10 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         df_clean = csv_df.dropna(subset=[stat_name])
                         best = df_clean.sort_values(by=stat_name, ascending=is_lowest).iloc[0]
                         
+                        # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
+                        full_response_text = f"⚽ **{best['Name']}** - {label_prefix} {stat_label}: **{int(best[stat_name])}** (Overall: {int(best['Overall'])})"
+                        
+                        # Sonra HTML kartı göster
                         full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -399,13 +401,12 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                             st.progress(int(best['Defending']) / 100)
                             st.markdown("💪 **Fizik**")
                             st.progress(int(best['Physicality']) / 100)
-                        
-                        full_response_text = f"{best['Name']} - Overall: {int(best['Overall'])}"
                     else:
                         full_response_text = "❌ CSV verisi yüklenemedi."
                         st.error(full_response_text)
                 
                 else:
+                    # Normal futbolcu arama
                     if csv_df is not None:
                         matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
                         
@@ -417,6 +418,10 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         if len(matching) > 0:
                             best = matching.iloc[0]
                             
+                            # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
+                            full_response_text = f"⚽ **{best['Name']}** - Overall: **{int(best['Overall'])}** | Club: {best['Club']}"
+                            
+                            # Sonra HTML kartı göster
                             full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -456,10 +461,8 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                                 st.progress(int(best['Defending']) / 100)
                                 st.markdown("💪 **Fizik**")
                                 st.progress(int(best['Physicality']) / 100)
-                            
-                            full_response_text = f"{best['Name']} - Overall: {int(best['Overall'])}"
                         else:
-                            full_response_text = f"Üzgünüm, '{processed_query}' bulunamadı. Tam futbolcu adı yazın."
+                            full_response_text = f"❌ Üzgünüm, '{processed_query}' bulunamadı. Lütfen tam futbolcu adını yazın."
                             st.warning(full_response_text)
                     else:
                         full_response_text = "❌ CSV verisi yüklenemedi."
@@ -467,6 +470,7 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                 
             except Exception as e:
                 st.error(f"❌ Hata: {e}")
-                full_response_text = "Üzgünüm, bir hata oluştu."
+                full_response_text = "❌ Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
     
+    # ✅ Artık full_response_text her zaman tanımlı
     st.session_state.messages.append({"role": "assistant", "content": full_response_text})
