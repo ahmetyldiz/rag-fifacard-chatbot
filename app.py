@@ -63,7 +63,6 @@ def preprocess_query(query):
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
 
-
 # ------------------- YAPILANDIRMA -------------------
 
 load_dotenv()
@@ -195,6 +194,8 @@ with st.sidebar:
     - Lionel Messi
     - Cristiano Ronaldo
     - En yüksek dereceli futbolcu
+    - En iyi defans
+    - En hızlı oyuncu
     """)
     
     st.markdown("---")
@@ -234,15 +235,18 @@ if vectordb:
                         if processed_query.startswith("**COMPARE:"):
                             compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
                             
-                            if compare_type == "highest_overall":
-                                stat_name = "Overall"
-                                stat_label = "Overall"
-                            elif compare_type == "highest_pace":
-                                stat_name = "Pace"
-                                stat_label = "Hız"
-                            else:
-                                stat_name = "Overall"
-                                stat_label = "Overall"
+                            # Stat mapping
+                            stat_mapping = {
+                                "highest_overall": ("Overall", "Overall"),
+                                "highest_pace": ("Pace", "Hız"),
+                                "highest_defending": ("Defending", "Defans"),
+                                "highest_physicality": ("Physicality", "Fizik"),
+                                "highest_shooting": ("Shooting", "Şut"),
+                                "highest_passing": ("Passing", "Pas"),
+                                "highest_dribbling": ("Dribbling", "Dribling")
+                            }
+                            
+                            stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
                             
                             if csv_df is not None:
                                 df_clean = csv_df.dropna(subset=[stat_name])
@@ -369,15 +373,18 @@ else:
                     if processed_query.startswith("**COMPARE:"):
                         compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
                         
-                        if compare_type == "highest_overall":
-                            stat_name = "Overall"
-                            stat_label = "Overall"
-                        elif compare_type == "highest_pace":
-                            stat_name = "Pace"
-                            stat_label = "Hız"
-                        else:
-                            stat_name = "Overall"
-                            stat_label = "Overall"
+                        # Stat mapping
+                        stat_mapping = {
+                            "highest_overall": ("Overall", "Overall"),
+                            "highest_pace": ("Pace", "Hız"),
+                            "highest_defending": ("Defending", "Defans"),
+                            "highest_physicality": ("Physicality", "Fizik"),
+                            "highest_shooting": ("Shooting", "Şut"),
+                            "highest_passing": ("Passing", "Pas"),
+                            "highest_dribbling": ("Dribbling", "Dribling")
+                        }
+                        
+                        stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
                         
                         if csv_df is not None:
                             df_clean = csv_df.dropna(subset=[stat_name])
@@ -432,7 +439,7 @@ else:
 └─ 💪 Fizik: {int(best['Physicality'])}
 ━━━━━━━━━━━━━━━━━━━━"""
                             else:
-                                full_response = f"Üzgünüm, '{processed_query}' bulunamadı. Tam isim yazın."
+                                full_response = f"Üzgünüm, '{processed_query}' bulunamadı. Tam isim yazın (örn: Messi, Ronaldo)."
                         else:
                             full_response = "❌ CSV verisi yüklenemedi."
                     
