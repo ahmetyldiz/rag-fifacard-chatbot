@@ -164,19 +164,37 @@ if "last_request_time" not in st.session_state:
     st.session_state.last_request_time = 0
 
 with st.sidebar:
-    st.header("📖 Kullanım Kılavuzu")
+    st.header("⚽ FIFA Kartı Chatbot")
+    st.markdown("---")
+    
+    # Sistem Durumu
+    st.subheader("📊 Sistem")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Toplam Futbolcu", "17,000+")
+    with col2:
+        st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
+    
+    st.markdown("---")
+    
+    # Kullanım Örnekleri
+    st.subheader("📖 Örnek Sorgular")
     st.markdown("""
-    **Örnek Aramalar:**
+    **🔍 Futbolcu Ara:**
     - Lionel Messi
     - Messinin kartı
+    - Kylian Mbappe
+    
+    **📊 İstatistik Sorgula:**
     - En yüksek dereceli futbolcu
-    - En iyi defans
     - En hızlı oyuncu
     - Fiziği en yüksek oyuncu
+    - En iyi defans
     """)
+    
     st.markdown("---")
-    st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
     show_debug = st.checkbox("🐛 Debug Modu", value=False)
+
 
 vectordb = load_database()
 
