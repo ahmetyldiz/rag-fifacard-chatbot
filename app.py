@@ -150,11 +150,69 @@ def load_database():
     except Exception:
         return None
 
+# ------------------- CUSTOM CSS -------------------
+
+st.markdown("""
+<style>
+    /* Ana başlık */
+    .main-title {
+        text-align: center;
+        color: #1f77b4;
+        font-size: 3em;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    /* FIFA Kartı */
+    .fifa-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        padding: 25px;
+        border-radius: 15px;
+        color: white;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        margin: 20px 0;
+    }
+    
+    .fifa-card h2 {
+        margin: 0;
+        font-size: 2em;
+    }
+    
+    .fifa-card p {
+        margin: 10px 0;
+        font-size: 1.1em;
+    }
+    
+    .stat-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 5px 0;
+    }
+    
+    /* Sidebar */
+    [data-testid="stSidebar"] {
+        background-color: #f8f9fa;
+    }
+    
+    /* Chat input */
+    .stChatInput {
+        border-radius: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
-st.set_page_config(page_title="⚽ FIFA Kartı Chatbot", layout="wide")
-st.title("⚽ FIFA Kartı Oluşturucu")
-st.markdown("🔍 Futbolcu adı girin ve FIFA kartını görün!")
+st.set_page_config(
+    page_title="⚽ FIFA Kartı Chatbot",
+    page_icon="⚽",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# Ana başlık
+st.markdown('<h1 class="main-title">⚽ FIFA Kartı Oluşturucu</h1>', unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#666;'>🔍 17,000+ futbolcudan istediğini ara ve kartını gör!</p>", unsafe_allow_html=True)
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -163,12 +221,14 @@ if "query_count" not in st.session_state:
 if "last_request_time" not in st.session_state:
     st.session_state.last_request_time = 0
 
+# ------------------- SIDEBAR -------------------
+
 with st.sidebar:
-    st.header("⚽ FIFA Kartı Chatbot")
+    st.markdown("### ⚽ FIFA Kartı Chatbot")
     st.markdown("---")
     
     # Sistem Durumu
-    st.subheader("📊 Sistem")
+    st.markdown("### 📊 Sistem Durumu")
     col1, col2 = st.columns(2)
     with col1:
         st.metric("Toplam Futbolcu", "17,000+")
@@ -178,7 +238,7 @@ with st.sidebar:
     st.markdown("---")
     
     # Kullanım Örnekleri
-    st.subheader("📖 Örnek Sorgular")
+    st.markdown("### 📖 Örnek Sorgular")
     st.markdown("""
     **🔍 Futbolcu Ara:**
     - Lionel Messi
@@ -194,19 +254,23 @@ with st.sidebar:
     
     st.markdown("---")
     show_debug = st.checkbox("🐛 Debug Modu", value=False)
+    
+    st.markdown("---")
+    st.caption("🤖 LLM-powered search with CSV fallback")
 
+# ------------------- CHAT -------------------
 
 vectordb = load_database()
 
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
-        st.markdown(message["content"])
+        st.markdown(message["content"], unsafe_allow_html=True)
 
 if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
-    st.error(f"❌ Maksimum sorgu limitine ulaştınız ({MAX_QUERIES_PER_SESSION}).")
+    st.error(f"❌ Maksimum sorgu limitine ulaştınız ({MAX_QUERIES_PER_SESSION}). Sayfayı yenileyerek devam edebilirsiniz.")
     st.stop()
 
-if prompt := st.chat_input("Futbolcu adı girin..."):
+if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)..."):
     current_time = time.time()
     if current_time - st.session_state.last_request_time < RATE_LIMIT_SECONDS:
         st.warning(f"⏳ Lütfen {RATE_LIMIT_SECONDS} saniye bekleyin...")
@@ -222,7 +286,9 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
         st.markdown(prompt)
     
     with st.chat_message("assistant"):
-        with st.spinner("⚽ Aranıyor..."):
+        with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
+            time.sleep(0.3)  # Küçük animasyon için
+            
             try:
                 if processed_query.startswith("**COMPARE:"):
                     compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
@@ -246,26 +312,58 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                         if show_debug:
                             st.info(f"🔍 Debug: '{prompt}' → '{processed_query}' → Stat: {stat_name}")
                         
+                        # Profesyonel kart tasarımı
                         full_response = f"""
-╔══════════════════════════════════╗
-║  ⚽ **{best['Name']}**
-║  🏆 Overall: **{int(best['Overall'])}** | 🏟️ {best['Club']}
-╠══════════════════════════════════╣
-║  📊 **İSTATİSTİKLER**
-║
-║  ⚡ Hız: **{int(best['Pace'])}**
-║  🎯 Şut: **{int(best['Shooting'])}**
-║  🎨 Pas: **{int(best['Passing'])}**
-║  ⚽ Dribling: **{int(best['Dribbling'])}**
-║  🛡️ Defans: **{int(best['Defending'])}**
-║  💪 Fizik: **{int(best['Physicality'])}**
-╚══════════════════════════════════╝
-
-*En yüksek {stat_label}: {int(best[stat_name])}*
+<div class="fifa-card">
+    <h2>⚽ {best['Name']}</h2>
+    <p>🏆 Overall: <b>{int(best['Overall'])}</b> | 🏟️ {best['Club']}</p>
+    <hr style="border-color: rgba(255,255,255,0.3); margin: 15px 0;">
+    <h3>📊 İSTATİSTİKLER</h3>
+    <div class="stat-row">
+        <span>⚡ Hız: <b>{int(best['Pace'])}</b></span>
+        <span>🎯 Şut: <b>{int(best['Shooting'])}</b></span>
+        <span>🎨 Pas: <b>{int(best['Passing'])}</b></span>
+    </div>
+    <div class="stat-row">
+        <span>⚽ Dribling: <b>{int(best['Dribbling'])}</b></span>
+        <span>🛡️ Defans: <b>{int(best['Defending'])}</b></span>
+        <span>💪 Fizik: <b>{int(best['Physicality'])}</b></span>
+    </div>
+    <hr style="border-color: rgba(255,255,255,0.3); margin: 15px 0;">
+    <p style="text-align:center; font-style:italic;">En yüksek {stat_label}: {int(best[stat_name])}</p>
+</div>
 """
-
+                        
+                        st.markdown(full_response, unsafe_allow_html=True)
+                        
+                        # Stat barları
+                        st.markdown("### 📊 Detaylı İstatistikler")
+                        col1, col2 = st.columns(2)
+                        
+                        with col1:
+                            st.markdown("⚡ **Hız**")
+                            st.progress(int(best['Pace']) / 100)
+                            
+                            st.markdown("🎯 **Şut**")
+                            st.progress(int(best['Shooting']) / 100)
+                            
+                            st.markdown("🎨 **Pas**")
+                            st.progress(int(best['Passing']) / 100)
+                        
+                        with col2:
+                            st.markdown("⚽ **Dribling**")
+                            st.progress(int(best['Dribbling']) / 100)
+                            
+                            st.markdown("🛡️ **Defans**")
+                            st.progress(int(best['Defending']) / 100)
+                            
+                            st.markdown("💪 **Fizik**")
+                            st.progress(int(best['Physicality']) / 100)
+                        
+                        full_response_text = f"{best['Name']} - Overall: {int(best['Overall'])}"
                     else:
-                        full_response = "❌ CSV verisi yüklenemedi."
+                        full_response_text = "❌ CSV verisi yüklenemedi."
+                        st.error(full_response_text)
                 
                 else:
                     if csv_df is not None:
@@ -284,31 +382,65 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                             if show_debug:
                                 st.info(f"🔍 '{prompt}' → '{processed_query}'")
                             
-                            full_response = f"""━━━━━━━━━━━━━━━━━━━━
-⚽ **{best['Name']}**
-━━━━━━━━━━━━━━━━━━━━
-🏆 **OVR:** {int(best['Overall'])}
-🏟️ **Kulüp:** {best['Club']}
-
-📊 **İSTATİSTİKLER:**
-├─ ⚡ Hız: {int(best['Pace'])}
-├─ 🎯 Şut: {int(best['Shooting'])}
-├─ 🎨 Pas: {int(best['Passing'])}
-├─ ⚽ Dribling: {int(best['Dribbling'])}
-├─ 🛡️ Defans: {int(best['Defending'])}
-└─ 💪 Fizik: {int(best['Physicality'])}
-━━━━━━━━━━━━━━━━━━━━"""
+                            # Profesyonel kart tasarımı
+                            full_response = f"""
+<div class="fifa-card">
+    <h2>⚽ {best['Name']}</h2>
+    <p>🏆 Overall: <b>{int(best['Overall'])}</b> | 🏟️ {best['Club']}</p>
+    <hr style="border-color: rgba(255,255,255,0.3); margin: 15px 0;">
+    <h3>📊 İSTATİSTİKLER</h3>
+    <div class="stat-row">
+        <span>⚡ Hız: <b>{int(best['Pace'])}</b></span>
+        <span>🎯 Şut: <b>{int(best['Shooting'])}</b></span>
+        <span>🎨 Pas: <b>{int(best['Passing'])}</b></span>
+    </div>
+    <div class="stat-row">
+        <span>⚽ Dribling: <b>{int(best['Dribbling'])}</b></span>
+        <span>🛡️ Defans: <b>{int(best['Defending'])}</b></span>
+        <span>💪 Fizik: <b>{int(best['Physicality'])}</b></span>
+    </div>
+</div>
+"""
+                            
+                            st.markdown(full_response, unsafe_allow_html=True)
+                            
+                            # Stat barları
+                            st.markdown("### 📊 Detaylı İstatistikler")
+                            col1, col2 = st.columns(2)
+                            
+                            with col1:
+                                st.markdown("⚡ **Hız**")
+                                st.progress(int(best['Pace']) / 100)
+                                
+                                st.markdown("🎯 **Şut**")
+                                st.progress(int(best['Shooting']) / 100)
+                                
+                                st.markdown("🎨 **Pas**")
+                                st.progress(int(best['Passing']) / 100)
+                            
+                            with col2:
+                                st.markdown("⚽ **Dribling**")
+                                st.progress(int(best['Dribbling']) / 100)
+                                
+                                st.markdown("🛡️ **Defans**")
+                                st.progress(int(best['Defending']) / 100)
+                                
+                                st.markdown("💪 **Fizik**")
+                                st.progress(int(best['Physicality']) / 100)
+                            
+                            full_response_text = f"{best['Name']} - Overall: {int(best['Overall'])}"
                         else:
-                            full_response = f"Üzgünüm, '{processed_query}' bulunamadı."
+                            full_response_text = f"Üzgünüm, '{processed_query}' bulunamadı."
+                            st.warning(full_response_text)
                     else:
-                        full_response = "❌ CSV verisi yüklenemedi."
-                
-                st.markdown(full_response)
+                        full_response_text = "❌ CSV verisi yüklenemedi."
+                        st.error(full_response_text)
                 
             except Exception as e:
                 st.error(f"❌ Hata: {e}")
                 import traceback
-                st.code(traceback.format_exc())
-                full_response = "Üzgünüm, bir hata oluştu."
+                if show_debug:
+                    st.code(traceback.format_exc())
+                full_response_text = "Üzgünüm, bir hata oluştu."
     
-    st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.messages.append({"role": "assistant", "content": full_response_text})
