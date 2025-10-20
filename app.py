@@ -69,13 +69,15 @@ Futbolcu adı:"""
 def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
-     # Genel mesajlar için özel yanıtlar
+    
+    # Genel mesajlar için özel yanıtlar
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
     elif query_lower in ['teşekkürler', 'teşekkür ederim', 'sağol', 'thanks', 'thank you']:
         return "**THANKS**"
     elif 'nasılsın' in query_lower or 'naber' in query_lower or 'how are you' in query_lower:
         return "**HOW_ARE_YOU**"
+    
     # ÖNCELİKLE "EN KÖTÜ" kontrolü
     if 'en kötü' in query_lower or 'en düşük' in query_lower or 'en zayıf' in query_lower or 'en az' in query_lower:
         if 'hız' in query_lower or 'pace' in query_lower:
@@ -112,7 +114,7 @@ def preprocess_query(query):
     
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
-    if llm_result:
+    if llm_result and llm_result not in ['Yok', 'Yok.', 'Bilinmiyor', '-', 'None']:
         return llm_result
     
     # Fallback: Manuel preprocessing
@@ -283,19 +285,7 @@ with st.sidebar:
 # ------------------- CHAT -------------------
 
 vectordb = load_database()
-if processed_query == "**GREETING**":
-    full_response_text = "Merhaba! ⚽ Ben FIFA Kartı Chatbot'uyum. Hangi futbolcunun kartını görmek istersin?"
-    st.info(full_response_text)
 
-elif processed_query == "**THANKS**":
-    full_response_text = "Rica ederim! 😊 Başka bir futbolcu aramak ister misin?"
-    st.success(full_response_text)
-
-elif processed_query == "**HOW_ARE_YOU**":
-    full_response_text = "Ben bir botum, ama iyi sayılırım! ⚽ Futbolcu kartları göstermekten keyif alıyorum. Sen ne aramak istersin?"
-    st.info(full_response_text)
-
-elif processed_query.startswith("**COMPARE:"):
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
@@ -324,10 +314,22 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
             time.sleep(0.3)
             
             try:
-                if processed_query.startswith("**COMPARE:"):
+                # GREETING kontrolü
+                if processed_query == "**GREETING**":
+                    full_response_text = "Merhaba! ⚽ Ben FIFA Kartı Chatbot'uyum. Hangi futbolcunun kartını görmek istersin?"
+                    st.info(full_response_text)
+                
+                elif processed_query == "**THANKS**":
+                    full_response_text = "Rica ederim! 😊 Başka bir futbolcu aramak ister misin?"
+                    st.success(full_response_text)
+                
+                elif processed_query == "**HOW_ARE_YOU**":
+                    full_response_text = "Ben bir botum, ama iyi sayılırım! ⚽ Futbolcu kartları göstermekten keyif alıyorum. Sen ne aramak istersin?"
+                    st.info(full_response_text)
+                
+                elif processed_query.startswith("**COMPARE:"):
                     compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
                     
-                    # "lowest" kontrolü
                     is_lowest = compare_type.startswith("lowest_")
                     if is_lowest:
                         compare_type = compare_type.replace("lowest_", "highest_")
@@ -452,7 +454,7 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                             
                             full_response_text = f"{best['Name']} - Overall: {int(best['Overall'])}"
                         else:
-                            full_response_text = f"Üzgünüm, '{processed_query}' bulunamadı."
+                            full_response_text = f"Üzgünüm, '{processed_query}' bulunamadı. Tam futbolcu adı yazın."
                             st.warning(full_response_text)
                     else:
                         full_response_text = "❌ CSV verisi yüklenemedi."
