@@ -35,6 +35,7 @@ RATE_LIMIT_SECONDS = 2
 # ------------------- LLM PREPROCESSING -------------------
 
 @st.cache_data(ttl=3600, show_spinner=False)
+
 def extract_player_name_with_llm(query):
     """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
     if not GEMINI_KEY:
@@ -66,6 +67,7 @@ Futbolcu adı:"""
         return None
 
 def preprocess_query(query):
+    
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
@@ -85,7 +87,10 @@ def preprocess_query(query):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
-    
+            
+        if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı']):
+            if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
+                return "**COMPARE:highest_pace**"
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
     if llm_result:
