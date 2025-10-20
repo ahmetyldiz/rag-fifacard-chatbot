@@ -70,7 +70,7 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # ÖNCELİKLE "EN KÖTÜ" kontrolü (en yüksek'ten önce!)
+    # ÖNCELİKLE "EN KÖTÜ" kontrolü
     if 'en kötü' in query_lower or 'en düşük' in query_lower or 'en zayıf' in query_lower or 'en az' in query_lower:
         if 'hız' in query_lower or 'pace' in query_lower:
             return "**COMPARE:lowest_pace**"
@@ -103,30 +103,6 @@ def preprocess_query(query):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
-    
-    # LLM ile dene
-    llm_result = extract_player_name_with_llm(query)
-    if llm_result:
-        return llm_result
-    
-    # Fallback: Manuel preprocessing
-    names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
-    if names:
-        return names[0]
-    
-    result = query_lower
-    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
-                "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
-    for suffix in suffixes:
-        result = result.replace(suffix, "")
-    
-    stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
-    for word in stop_words:
-        result = result.replace(word, "")
-    
-    result = result.strip().split()[0] if result.strip().split() else result
-    return result.capitalize()
-
     
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
@@ -195,7 +171,6 @@ def load_database():
 
 st.markdown("""
 <style>
-    /* Sidebar */
     section[data-testid="stSidebar"] {
         width: 300px !important;
         min-width: 300px !important;
@@ -209,7 +184,6 @@ st.markdown("""
         background-color: #1e1e1e;
     }
     
-    /* Ana başlık */
     .main-title {
         text-align: center;
         color: #1f77b4;
@@ -218,7 +192,6 @@ st.markdown("""
         margin-bottom: 10px;
     }
     
-    /* FIFA Kartı */
     .fifa-card {
         background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         padding: 25px;
@@ -244,7 +217,6 @@ st.markdown("""
         margin: 5px 0;
     }
     
-    /* Chat input */
     .stChatInput {
         border-radius: 20px;
     }
@@ -260,7 +232,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Ana başlık
 st.markdown('<h1 class="main-title">⚽ FIFA Kartı Oluşturucu</h1>', unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#666;'>🔍 17,000+ futbolcudan istediğini ara ve kartını gör!</p>", unsafe_allow_html=True)
 
@@ -277,7 +248,6 @@ with st.sidebar:
     st.markdown("### ⚽ FIFA Kartı Chatbot")
     st.markdown("---")
     
-    # Sistem Durumu
     st.markdown("### 📊 Sistem Durumu")
     col1, col2 = st.columns(2)
     with col1:
@@ -287,7 +257,6 @@ with st.sidebar:
     
     st.markdown("---")
     
-    # Kullanım Örnekleri
     st.markdown("### 📖 Örnek Sorgular")
     st.markdown("""
     **🔍 Futbolcu Ara:**
@@ -338,35 +307,33 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
             
             try:
                 if processed_query.startswith("**COMPARE:"):
-    compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
-    
-    # "lowest" kontrolü
-    is_lowest = compare_type.startswith("lowest_")
-    if is_lowest:
-        compare_type = compare_type.replace("lowest_", "highest_")
-        label_prefix = "En düşük"
-    else:
-        label_prefix = "En yüksek"
-    
-    stat_mapping = {
-        "highest_overall": ("Overall", "Overall"),
-        "highest_pace": ("Pace", "Hız"),
-        "highest_defending": ("Defending", "Defans"),
-        "highest_physicality": ("Physicality", "Fizik"),
-        "highest_shooting": ("Shooting", "Şut"),
-        "highest_passing": ("Passing", "Pas"),
-        "highest_dribbling": ("Dribbling", "Dribling")
-    }
-    
-    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
-    
-    if csv_df is not None:
-        df_clean = csv_df.dropna(subset=[stat_name])
-        # is_lowest=True ise ascending=True (küçükten büyüğe)
-        best = df_clean.sort_values(by=stat_name, ascending=is_lowest).iloc[0]
-        
-        # Kart HTML'i (aynı)
-        full_response = f"""
+                    compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
+                    
+                    # "lowest" kontrolü
+                    is_lowest = compare_type.startswith("lowest_")
+                    if is_lowest:
+                        compare_type = compare_type.replace("lowest_", "highest_")
+                        label_prefix = "En düşük"
+                    else:
+                        label_prefix = "En yüksek"
+                    
+                    stat_mapping = {
+                        "highest_overall": ("Overall", "Overall"),
+                        "highest_pace": ("Pace", "Hız"),
+                        "highest_defending": ("Defending", "Defans"),
+                        "highest_physicality": ("Physicality", "Fizik"),
+                        "highest_shooting": ("Shooting", "Şut"),
+                        "highest_passing": ("Passing", "Pas"),
+                        "highest_dribbling": ("Dribbling", "Dribling")
+                    }
+                    
+                    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
+                    
+                    if csv_df is not None:
+                        df_clean = csv_df.dropna(subset=[stat_name])
+                        best = df_clean.sort_values(by=stat_name, ascending=is_lowest).iloc[0]
+                        
+                        full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
     <p>🏆 Overall: <b>{int(best['Overall'])}</b> | 🏟️ {best['Club']}</p>
@@ -386,32 +353,25 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
     <p style="text-align:center; font-style:italic;">{label_prefix} {stat_label}: {int(best[stat_name])}</p>
 </div>
 """
-        # ... (stat barları aynı)
-
                         
                         st.markdown(full_response, unsafe_allow_html=True)
                         
-                        # Stat barları
                         st.markdown("### 📊 Detaylı İstatistikler")
                         col1, col2 = st.columns(2)
                         
                         with col1:
                             st.markdown("⚡ **Hız**")
                             st.progress(int(best['Pace']) / 100)
-                            
                             st.markdown("🎯 **Şut**")
                             st.progress(int(best['Shooting']) / 100)
-                            
                             st.markdown("🎨 **Pas**")
                             st.progress(int(best['Passing']) / 100)
                         
                         with col2:
                             st.markdown("⚽ **Dribling**")
                             st.progress(int(best['Dribbling']) / 100)
-                            
                             st.markdown("🛡️ **Defans**")
                             st.progress(int(best['Defending']) / 100)
-                            
                             st.markdown("💪 **Fizik**")
                             st.progress(int(best['Physicality']) / 100)
                         
@@ -422,10 +382,8 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                 
                 else:
                     if csv_df is not None:
-                        # Önce exact match
                         matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
                         
-                        # Bulamazsa normalized search
                         if len(matching) == 0:
                             csv_df['Name_normalized'] = csv_df['Name'].apply(lambda x: unidecode(str(x)).lower())
                             processed_normalized = unidecode(processed_query).lower()
@@ -455,27 +413,22 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                             
                             st.markdown(full_response, unsafe_allow_html=True)
                             
-                            # Stat barları
                             st.markdown("### 📊 Detaylı İstatistikler")
                             col1, col2 = st.columns(2)
                             
                             with col1:
                                 st.markdown("⚡ **Hız**")
                                 st.progress(int(best['Pace']) / 100)
-                                
                                 st.markdown("🎯 **Şut**")
                                 st.progress(int(best['Shooting']) / 100)
-                                
                                 st.markdown("🎨 **Pas**")
                                 st.progress(int(best['Passing']) / 100)
                             
                             with col2:
                                 st.markdown("⚽ **Dribling**")
                                 st.progress(int(best['Dribbling']) / 100)
-                                
                                 st.markdown("🛡️ **Defans**")
                                 st.progress(int(best['Defending']) / 100)
-                                
                                 st.markdown("💪 **Fizik**")
                                 st.progress(int(best['Physicality']) / 100)
                             
