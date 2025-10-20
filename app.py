@@ -22,25 +22,47 @@ from langchain_core.prompts import ChatPromptTemplate
 # ------------------- PREPROCESSING -------------------
 
 def preprocess_query(query):
-    """Süper basit ama etkili preprocessing"""
-    if any(word in query.lower() for word in ['en yüksek', 'en iyi', 'kimdir']):
-        return "**COMPARE:highest_overall**"
-    if 'hızlı' in query.lower():
-        return "**COMPARE:highest_pace**"
+    """Gelişmiş preprocessing"""
+    query_lower = query.lower()
     
+    # Karşılaştırma sorguları
+    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir']):
+        if 'hız' in query_lower or 'pace' in query_lower:
+            return "**COMPARE:highest_pace**"
+        elif 'defans' in query_lower or 'defending' in query_lower:
+            return "**COMPARE:highest_defending**"
+        elif 'fizik' in query_lower or 'physicality' in query_lower:
+            return "**COMPARE:highest_physicality**"
+        elif 'şut' in query_lower or 'shooting' in query_lower:
+            return "**COMPARE:highest_shooting**"
+        elif 'pas' in query_lower or 'passing' in query_lower:
+            return "**COMPARE:highest_passing**"
+        elif 'dribling' in query_lower or 'dribbling' in query_lower:
+            return "**COMPARE:highest_dribbling**"
+        else:
+            return "**COMPARE:highest_overall**"
+    
+    # Büyük harfli isim varsa al
     names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
     if names:
         return names[0]
     
-    result = query.lower()
-    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", "'un", "'ün", "un", "ün"]
+    # Türkçe ekleri agresif temizle
+    result = query_lower
+    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
+                "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
     for suffix in suffixes:
         result = result.replace(suffix, "")
-    for word in ['kartı', 'kart', 'göster', 'oluştur', 'getir', 'bana', 'fifa']:
-        result = result.replace(word, " ")
     
+    # Gereksiz kelimeleri temizle
+    stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
+    for word in stop_words:
+        result = result.replace(word, "")
+    
+    # İlk kelimeyi al ve capitalize
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
+
 
 # ------------------- YAPILANDIRMA -------------------
 
