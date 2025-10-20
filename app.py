@@ -228,22 +228,24 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                         if show_debug:
                             st.info(f"🔍 Debug: '{prompt}' → '{processed_query}' → Stat: {stat_name}")
                         
-                        full_response = f"""━━━━━━━━━━━━━━━━━━━━
-⚽ **{best['Name']}**
-━━━━━━━━━━━━━━━━━━━━
-🏆 **OVR:** {int(best['Overall'])}
-🏟️ **Kulüp:** {best['Club']}
+                        full_response = f"""
+╔══════════════════════════════════╗
+║  ⚽ **{best['Name']}**
+║  🏆 Overall: **{int(best['Overall'])}** | 🏟️ {best['Club']}
+╠══════════════════════════════════╣
+║  📊 **İSTATİSTİKLER**
+║
+║  ⚡ Hız: **{int(best['Pace'])}**
+║  🎯 Şut: **{int(best['Shooting'])}**
+║  🎨 Pas: **{int(best['Passing'])}**
+║  ⚽ Dribling: **{int(best['Dribbling'])}**
+║  🛡️ Defans: **{int(best['Defending'])}**
+║  💪 Fizik: **{int(best['Physicality'])}**
+╚══════════════════════════════════╝
 
-📊 **İSTATİSTİKLER:**
-├─ ⚡ Hız: {int(best['Pace'])}
-├─ 🎯 Şut: {int(best['Shooting'])}
-├─ 🎨 Pas: {int(best['Passing'])}
-├─ ⚽ Dribling: {int(best['Dribbling'])}
-├─ 🛡️ Defans: {int(best['Defending'])}
-└─ 💪 Fizik: {int(best['Physicality'])}
-━━━━━━━━━━━━━━━━━━━━
+*En yüksek {stat_label}: {int(best[stat_name])}*
+"""
 
-*En yüksek {stat_label}: {int(best[stat_name])}*"""
                     else:
                         full_response = "❌ CSV verisi yüklenemedi."
                 
