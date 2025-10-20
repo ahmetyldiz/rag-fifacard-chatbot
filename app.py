@@ -37,7 +37,6 @@ RATE_LIMIT_SECONDS = 2
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def extract_player_name_with_llm(query):
-
     """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
     if not GEMINI_KEY:
         return None
@@ -50,7 +49,7 @@ def extract_player_name_with_llm(query):
             google_api_key=GEMINI_KEY
         )
         
-        prompt = f"""Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma.
+        prompt = f"""V2: Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma.
 
 Cümle: {query}
 
