@@ -6,7 +6,6 @@ try:
 except ImportError:
     pass
 
-
 from unidecode import unidecode
 import time
 import pandas as pd
@@ -37,7 +36,6 @@ RATE_LIMIT_SECONDS = 2
 # ------------------- LLM PREPROCESSING -------------------
 
 @st.cache_data(ttl=3600, show_spinner=False)
-
 def extract_player_name_with_llm(query):
     """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
     if not GEMINI_KEY:
@@ -69,12 +67,11 @@ Futbolcu adı:"""
         return None
 
 def preprocess_query(query):
-    
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
     # Karşılaştırma sorguları
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir']):
+    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı']):
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
         elif 'defans' in query_lower or 'defending' in query_lower:
@@ -89,10 +86,7 @@ def preprocess_query(query):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
-            
-        if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı']):
-            if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
-                return "**COMPARE:highest_pace**"
+    
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
     if llm_result:
@@ -177,6 +171,7 @@ with st.sidebar:
     - Messinin kartı
     - En yüksek dereceli futbolcu
     - En iyi defans
+    - En hızlı oyuncu
     """)
     st.markdown("---")
     st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
@@ -226,16 +221,8 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                     stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
                     
                     if csv_df is not None:
-    # Önce exact match
-    matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
-    
-    # Bulamazsa normalized search
-    if len(matching) == 0:
-        # "Mbappe" → "Mbappe", "Mbappé" → "Mbappe" olarak normalize et
-        csv_df['Name_normalized'] = csv_df['Name'].apply(lambda x: unidecode(str(x)).lower())
-        processed_normalized = unidecode(processed_query).lower()
-        matching = csv_df[csv_df['Name_normalized'].str.contains(processed_normalized, na=False, regex=False)]
-
+                        df_clean = csv_df.dropna(subset=[stat_name])
+                        best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
                         
                         full_response = f"""━━━━━━━━━━━━━━━━━━━━
 ⚽ **{best['Name']}**
@@ -258,7 +245,14 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                 
                 else:
                     if csv_df is not None:
+                        # Önce exact match
                         matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
+                        
+                        # Bulamazsa normalized search
+                        if len(matching) == 0:
+                            csv_df['Name_normalized'] = csv_df['Name'].apply(lambda x: unidecode(str(x)).lower())
+                            processed_normalized = unidecode(processed_query).lower()
+                            matching = csv_df[csv_df['Name_normalized'].str.contains(processed_normalized, na=False, regex=False)]
                         
                         if len(matching) > 0:
                             best = matching.iloc[0]
