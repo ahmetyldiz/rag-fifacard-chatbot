@@ -35,8 +35,8 @@ RATE_LIMIT_SECONDS = 2
 
 # ------------------- LLM PREPROCESSING -------------------
 
-@st.cache_data(ttl=1, show_spinner=False)
-def extract_player_name_with_llm(query):
+@st.cache_data(ttl=3600, show_spinner=False, hash_funcs={"_thread.RLock": lambda _: None})
+def extract_player_name_with_llm_v2(query):
 
     """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
     if not GEMINI_KEY:
