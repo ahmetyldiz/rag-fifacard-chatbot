@@ -70,7 +70,10 @@ Futbolcu adı:"""
 def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
-    
+    # DEBUG PRINT
+    print(f"🔍 DEBUG: query_lower = '{query_lower}'")
+    print(f"🔍 'fizik' in query_lower: {'fizik' in query_lower}")
+    print(f"🔍 'oyuncu' in query_lower: {'oyuncu' in query_lower}")
     # Genel mesajlar
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
