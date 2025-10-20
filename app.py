@@ -6,6 +6,8 @@ try:
 except ImportError:
     pass
 
+
+from unidecode import unidecode
 import time
 import pandas as pd
 import streamlit as st
