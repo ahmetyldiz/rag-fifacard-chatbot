@@ -19,13 +19,61 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
-# ------------------- PREPROCESSING -------------------
+# ------------------- YAPILANDIRMA -------------------
+
+load_dotenv()
+
+GEMINI_KEY = (
+    os.environ.get("GEMINI_API_KEY") or
+    st.secrets.get("GEMINI_API_KEY", None) or
+    None
+) 
+PERSIST_DIRECTORY = "./chroma_db"
+COLLECTION_NAME = "fifa-players"
+
+# ⚠️ TOKEN KORUMA AYARLARI
+MAX_QUERIES_PER_SESSION = 20  # Her session için maksimum sorgu sayısı
+RATE_LIMIT_SECONDS = 2  # Sorgular arası minimum süre
+
+# ------------------- LLM PREPROCESSING (CACHE'LENMİŞ) -------------------
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def extract_player_name_with_llm(query):
+    """Cache'lenmiş LLM ile futbolcu adı çıkarma"""
+    if not GEMINI_KEY:
+        return None
+    
+    try:
+        llm = ChatGoogleGenerativeAI(
+            model="gemini-2.0-flash-exp",
+            temperature=0,
+            max_output_tokens=50,  # Token limiti
+            google_api_key=GEMINI_KEY
+        )
+        
+        prompt = f"""Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma.
+
+Cümle: {query}
+
+Futbolcu adı:"""
+        
+        response = llm.invoke(prompt)
+        player_name = response.content.strip()
+        
+        # Çok uzunsa geçersiz
+        if len(player_name) > 30:
+            return None
+        
+        return player_name
+        
+    except Exception as e:
+        return None
 
 def preprocess_query(query):
-    """LLM-powered preprocessing"""
+    """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # Basit karşılaştırma sorguları (LLM gereksiz)
+    # Karşılaştırma sorguları (LLM gereksiz)
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir']):
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
@@ -42,36 +90,12 @@ def preprocess_query(query):
         else:
             return "**COMPARE:highest_overall**"
     
-    # LLM ile futbolcu adı çıkarma
-    if GEMINI_KEY:
-        try:
-            llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash-exp",
-                temperature=0,
-                google_api_key=GEMINI_KEY
-            )
-            
-            prompt = f"""Aşağıdaki cümleden SADECE futbolcu adını çıkar. Hiçbir açıklama yapma, sadece ismi yaz.
-
-Cümle: {query}
-
-Futbolcu adı:"""
-            
-            response = llm.invoke(prompt)
-            player_name = response.content.strip()
-            
-            # LLM çok uzun cevap verdiyse fallback
-            if len(player_name) > 30:
-                return query.capitalize()
-            
-            return player_name
-            
-        except Exception as e:
-            st.warning(f"⚠️ LLM preprocessing hatası: {e}")
-            # Fallback: manuel preprocessing
-            pass
+    # LLM ile dene (cache'li)
+    llm_result = extract_player_name_with_llm(query)
+    if llm_result:
+        return llm_result
     
-    # Fallback: manuel preprocessing
+    # Fallback: Manuel preprocessing
     names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
     if names:
         return names[0]
@@ -89,24 +113,10 @@ Futbolcu adı:"""
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
 
-
-# ------------------- YAPILANDIRMA -------------------
-
-load_dotenv()
-
-GEMINI_KEY = (
-    os.environ.get("GEMINI_API_KEY") or
-    st.secrets.get("GEMINI_API_KEY", None) or
-    None
-) 
-PERSIST_DIRECTORY = "./chroma_db"
-COLLECTION_NAME = "fifa-players"
-
 # ------------------- CSV YÜKLEME -------------------
 
 @st.cache_data(show_spinner=False)
 def load_csv_data():
-    """CSV dosyasını cache'le"""
     csv_path = 'male_players.csv'
     if os.path.exists(csv_path):
         try:
@@ -147,7 +157,7 @@ def load_database():
         st.info("💡 Sadece CSV fallback modu çalışacak")
         return None
 
-# ------------------- RAG ZİNCİRİ KURULUMU -------------------
+# ------------------- RAG ZİNCİRİ -------------------
 
 @st.cache_resource(show_spinner=False)
 def setup_rag_chain(_vectordb):
@@ -158,6 +168,7 @@ def setup_rag_chain(_vectordb):
         llm = ChatGoogleGenerativeAI(
             model="gemini-2.0-flash-exp",
             temperature=0.2,
+            max_output_tokens=300,  # Token limiti
             google_api_key=GEMINI_KEY
         )
         
@@ -179,21 +190,13 @@ def setup_rag_chain(_vectordb):
 └─ 💪 Fizik: [PHY]
 ━━━━━━━━━━━━━━━━━━━━
 
-Context:
-{context}
-
+Context: {context}
 Soru: {input}
-
 Cevap:"""
         
         prompt = ChatPromptTemplate.from_template(prompt_template)
         document_chain = create_stuff_documents_chain(llm, prompt)
-        
-        retriever = _vectordb.as_retriever(
-            search_type="similarity",
-            search_kwargs={"k": 5}
-        )
-        
+        retriever = _vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 5})
         retrieval_chain = create_retrieval_chain(retriever, document_chain)
         
         return retrieval_chain
@@ -205,9 +208,16 @@ Cevap:"""
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
 st.set_page_config(page_title="⚽ FIFA Kartı Chatbot", layout="wide")
-
 st.title("⚽ FIFA Kartı Oluşturucu")
 st.markdown("🔍 Futbolcu adı girin ve FIFA kartını görün!")
+
+# Session state başlatma
+if "messages" not in st.session_state:
+    st.session_state.messages = []
+if "query_count" not in st.session_state:
+    st.session_state.query_count = 0
+if "last_request_time" not in st.session_state:
+    st.session_state.last_request_time = 0
 
 with st.sidebar:
     st.header("📖 Kullanım Kılavuzu")
@@ -219,73 +229,70 @@ with st.sidebar:
     
     **Örnek Aramalar:**
     - Lionel Messi
-    - Cristiano Ronaldo
+    - Messinin kartı
     - En yüksek dereceli futbolcu
     - En iyi defans
-    - En hızlı oyuncu
     """)
     
     st.markdown("---")
+    st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
     show_debug = st.checkbox("🐛 Debug Modu", value=False)
 
 vectordb = load_database()
 
-if vectordb:
-    qa_chain = setup_rag_chain(vectordb)
+# CSV-ONLY FALLBACK MODU
+if not vectordb:
+    st.warning("❌ Veritabanı yüklenemedi. CSV fallback modu kullanılıyor.")
+    st.info("💡 Futbolcu adı yazarak CSV üzerinden arama yapabilirsiniz.")
+
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+# QUERY LİMİT KONTROLÜ
+if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
+    st.error(f"❌ Maksimum sorgu limitine ulaştınız ({MAX_QUERIES_PER_SESSION}). Sayfayı yenileyerek devam edebilirsiniz.")
+    st.stop()
+
+if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, Ronaldo)..."):
+    # Rate limit kontrolü
+    current_time = time.time()
+    if current_time - st.session_state.last_request_time < RATE_LIMIT_SECONDS:
+        st.warning(f"⏳ Lütfen {RATE_LIMIT_SECONDS} saniye bekleyin...")
+        st.stop()
     
-    if qa_chain:
-        if "last_request_time" not in st.session_state:
-            st.session_state.last_request_time = 0
-        if "messages" not in st.session_state:
-            st.session_state.messages = []
-        
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
-        
-        if prompt := st.chat_input("Örnek: Lionel Messi, Benzema, en yüksek dereceli futbolcu..."):
-            current_time = time.time()
-            if current_time - st.session_state.last_request_time < 1.5:
-                st.warning("⏳ Lütfen 1.5 saniye bekleyin...")
-                st.stop()
-            st.session_state.last_request_time = current_time
-            
-            processed_query = preprocess_query(prompt)
-            
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            
-            with st.chat_message("assistant"):
-                with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
-                    try:
-                        if processed_query.startswith("**COMPARE:"):
-                            compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
-                            
-                            # Stat mapping
-                            stat_mapping = {
-                                "highest_overall": ("Overall", "Overall"),
-                                "highest_pace": ("Pace", "Hız"),
-                                "highest_defending": ("Defending", "Defans"),
-                                "highest_physicality": ("Physicality", "Fizik"),
-                                "highest_shooting": ("Shooting", "Şut"),
-                                "highest_passing": ("Passing", "Pas"),
-                                "highest_dribbling": ("Dribbling", "Dribling")
-                            }
-                            
-                            stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
-                            
-                            if csv_df is not None:
-                                df_clean = csv_df.dropna(subset=[stat_name])
-                                top_df = df_clean.sort_values(by=stat_name, ascending=False).head(10)
-                                best = top_df.iloc[0]
-                                
-                                if show_debug:
-                                    with st.expander("🔍 Debug: En İyi 10 Futbolcu"):
-                                        st.write(f"**Sıralama Kriteri:** {stat_label}")
-                                        st.dataframe(top_df[['Name', 'Club', stat_name]].head(10))
-                                
-                                full_response = f"""━━━━━━━━━━━━━━━━━━━━
+    st.session_state.last_request_time = current_time
+    st.session_state.query_count += 1
+    
+    processed_query = preprocess_query(prompt)
+    
+    st.session_state.messages.append({"role": "user", "content": prompt})
+    with st.chat_message("user"):
+        st.markdown(prompt)
+    
+    with st.chat_message("assistant"):
+        with st.spinner("⚽ Aranıyor..."):
+            try:
+                if processed_query.startswith("**COMPARE:"):
+                    compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
+                    
+                    stat_mapping = {
+                        "highest_overall": ("Overall", "Overall"),
+                        "highest_pace": ("Pace", "Hız"),
+                        "highest_defending": ("Defending", "Defans"),
+                        "highest_physicality": ("Physicality", "Fizik"),
+                        "highest_shooting": ("Shooting", "Şut"),
+                        "highest_passing": ("Passing", "Pas"),
+                        "highest_dribbling": ("Dribbling", "Dribling")
+                    }
+                    
+                    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
+                    
+                    if csv_df is not None:
+                        df_clean = csv_df.dropna(subset=[stat_name])
+                        best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
+                        
+                        full_response = f"""━━━━━━━━━━━━━━━━━━━━
 ⚽ **{best['Name']}**
 ━━━━━━━━━━━━━━━━━━━━
 🏆 **OVR:** {int(best['Overall'])}
@@ -301,122 +308,18 @@ if vectordb:
 ━━━━━━━━━━━━━━━━━━━━
 
 *En yüksek {stat_label}: {int(best[stat_name])}*"""
-                            else:
-                                full_response = "❌ CSV verisi yüklenemedi."
+                    else:
+                        full_response = "❌ CSV verisi yüklenemedi."
+                
+                else:
+                    if csv_df is not None:
+                        matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
                         
-                        else:
-                            docs_with_scores = vectordb.similarity_search_with_score(processed_query, k=10)
+                        if len(matching) > 0:
+                            best = matching.iloc[0]
                             
-                            best_score = docs_with_scores[0][1] if docs_with_scores else 999
-                            
-                            if best_score > 0.7 or not docs_with_scores:
-                                if csv_df is not None:
-                                    matching = csv_df[
-                                        csv_df['Name'].str.contains(
-                                            processed_query, 
-                                            case=False, 
-                                            na=False, 
-                                            regex=False
-                                        )
-                                    ]
-                                    
-                                    if len(matching) > 0:
-                                        best = matching.iloc[0]
-                                        
-                                        if show_debug:
-                                            with st.expander("🔍 Debug: CSV Fallback"):
-                                                st.write(f"**Aranan:** '{processed_query}'")
-                                                st.write(f"**Bulunan:** {best['Name']}")
-                                                st.write(f"**Embedding skoru kötü:** {best_score:.3f}")
-                                        
-                                        full_response = f"""━━━━━━━━━━━━━━━━━━━━
-⚽ **{best['Name']}**
-━━━━━━━━━━━━━━━━━━━━
-🏆 **OVR:** {int(best['Overall'])}
-🏟️ **Kulüp:** {best['Club']}
-
-📊 **İSTATİSTİKLER:**
-├─ ⚡ Hız: {int(best['Pace'])}
-├─ 🎯 Şut: {int(best['Shooting'])}
-├─ 🎨 Pas: {int(best['Passing'])}
-├─ ⚽ Dribling: {int(best['Dribbling'])}
-├─ 🛡️ Defans: {int(best['Defending'])}
-└─ 💪 Fizik: {int(best['Physicality'])}
-━━━━━━━━━━━━━━━━━━━━"""
-                                    else:
-                                        full_response = f"Üzgünüm, '{processed_query}' veritabanında bulunamadı."
-                                else:
-                                    full_response = "❌ CSV verisi yüklenemedi."
-                            
-                            else:
-                                if show_debug:
-                                    with st.expander("🔍 Debug: Embedding Search"):
-                                        st.write(f"**Aranan:** '{processed_query}'")
-                                        st.write(f"**En İyi Skor:** {best_score:.3f}")
-                                
-                                best_doc = docs_with_scores[0][0]
-                                response = qa_chain.invoke({
-                                    "input": processed_query,
-                                    "context": best_doc.page_content
-                                })
-                                full_response = response['answer']
-                        
-                        st.markdown(full_response)
-                        
-                    except Exception as e:
-                        st.error(f"❌ Hata: {e}")
-                        import traceback
-                        with st.expander("🐛 Teknik Detaylar"):
-                            st.code(traceback.format_exc())
-                        full_response = "Üzgünüm, bir hata oluştu."
-            
-            st.session_state.messages.append({"role": "assistant", "content": full_response})
-    
-    else:
-        st.error("❌ RAG zinciri kurulamadı.")
-
-# ✅ CSV-ONLY FALLBACK MODU
-else:
-    st.warning("❌ Veritabanı yüklenemedi. CSV fallback modu kullanılıyor.")
-    st.info("💡 Futbolcu adı yazarak CSV üzerinden arama yapabilirsiniz.")
-    
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-    
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-    
-    if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, Ronaldo, en yüksek dereceli)..."):
-        processed_query = preprocess_query(prompt)
-        
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-        
-        with st.chat_message("assistant"):
-            with st.spinner("⚽ Aranıyor..."):
-                try:
-                    if processed_query.startswith("**COMPARE:"):
-                        compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
-                        
-                        # Stat mapping
-                        stat_mapping = {
-                            "highest_overall": ("Overall", "Overall"),
-                            "highest_pace": ("Pace", "Hız"),
-                            "highest_defending": ("Defending", "Defans"),
-                            "highest_physicality": ("Physicality", "Fizik"),
-                            "highest_shooting": ("Shooting", "Şut"),
-                            "highest_passing": ("Passing", "Pas"),
-                            "highest_dribbling": ("Dribbling", "Dribling")
-                        }
-                        
-                        stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
-                        
-                        if csv_df is not None:
-                            df_clean = csv_df.dropna(subset=[stat_name])
-                            top_df = df_clean.sort_values(by=stat_name, ascending=False).head(10)
-                            best = top_df.iloc[0]
+                            if show_debug:
+                                st.info(f"🔍 LLM preprocessing: '{prompt}' → '{processed_query}'")
                             
                             full_response = f"""━━━━━━━━━━━━━━━━━━━━
 ⚽ **{best['Name']}**
@@ -431,52 +334,16 @@ else:
 ├─ ⚽ Dribling: {int(best['Dribbling'])}
 ├─ 🛡️ Defans: {int(best['Defending'])}
 └─ 💪 Fizik: {int(best['Physicality'])}
-━━━━━━━━━━━━━━━━━━━━
-
-*En yüksek {stat_label}: {int(best[stat_name])}*"""
-                        else:
-                            full_response = "❌ CSV verisi yüklenemedi."
-                    
-                    else:
-                        if csv_df is not None:
-                            matching = csv_df[
-                                csv_df['Name'].str.contains(
-                                    processed_query, 
-                                    case=False, 
-                                    na=False, 
-                                    regex=False
-                                )
-                            ]
-                            
-                            if len(matching) > 0:
-                                best = matching.iloc[0]
-                                
-                                full_response = f"""━━━━━━━━━━━━━━━━━━━━
-⚽ **{best['Name']}**
-━━━━━━━━━━━━━━━━━━━━
-🏆 **OVR:** {int(best['Overall'])}
-🏟️ **Kulüp:** {best['Club']}
-
-📊 **İSTATİSTİKLER:**
-├─ ⚡ Hız: {int(best['Pace'])}
-├─ 🎯 Şut: {int(best['Shooting'])}
-├─ 🎨 Pas: {int(best['Passing'])}
-├─ ⚽ Dribling: {int(best['Dribbling'])}
-├─ 🛡️ Defans: {int(best['Defending'])}
-└─ 💪 Fizik: {int(best['Physicality'])}
 ━━━━━━━━━━━━━━━━━━━━"""
-                            else:
-                                full_response = f"Üzgünüm, '{processed_query}' bulunamadı. Tam isim yazın (örn: Messi, Ronaldo)."
                         else:
-                            full_response = "❌ CSV verisi yüklenemedi."
-                    
-                    st.markdown(full_response)
-                    
-                except Exception as e:
-                    st.error(f"❌ Hata: {e}")
-                    import traceback
-                    with st.expander("🐛 Teknik Detaylar"):
-                        st.code(traceback.format_exc())
-                    full_response = "Üzgünüm, bir hata oluştu."
-        
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
+                            full_response = f"Üzgünüm, '{processed_query}' bulunamadı."
+                    else:
+                        full_response = "❌ CSV verisi yüklenemedi."
+                
+                st.markdown(full_response)
+                
+            except Exception as e:
+                st.error(f"❌ Hata: {e}")
+                full_response = "Üzgünüm, bir hata oluştu."
+    
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
