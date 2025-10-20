@@ -70,6 +70,16 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
+    # 🔍 DEBUG: Konsola yazdır
+    print(f"\n{'='*50}")
+    print(f"🔍 QUERY DEBUG")
+    print(f"{'='*50}")
+    print(f"Original query: '{query}'")
+    print(f"Query lower: '{query_lower}'")
+    print(f"'fizik' in query_lower: {'fizik' in query_lower}")
+    print(f"'physical' in query_lower: {'physical' in query_lower}")
+    print(f"{'='*50}\n")
+    
     # Genel mesajlar
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
@@ -80,35 +90,35 @@ def preprocess_query(query):
     
     # EN KÖTÜ
     if 'en kötü' in query_lower or 'en düşük' in query_lower:
-        if 'hız' in query_lower or 'pace' in query_lower:
+        if any(word in query_lower for word in ['hız', 'hızl', 'pace']):
             return "**COMPARE:lowest_pace**"
-        elif 'fizik' in query_lower or 'physical' in query_lower:
+        elif any(word in query_lower for word in ['fizik', 'fiziğ', 'physical']):
             return "**COMPARE:lowest_physicality**"
-        elif 'defans' in query_lower or 'defending' in query_lower:
+        elif any(word in query_lower for word in ['defans', 'defending']):
             return "**COMPARE:lowest_defending**"
-        elif 'şut' in query_lower or 'shoot' in query_lower:
+        elif any(word in query_lower for word in ['şut', 'shoot']):
             return "**COMPARE:lowest_shooting**"
-        elif 'pas' in query_lower or 'pass' in query_lower:
+        elif any(word in query_lower for word in ['pas', 'pass']):
             return "**COMPARE:lowest_passing**"
-        elif 'dribl' in query_lower or 'dribbl' in query_lower:
+        elif any(word in query_lower for word in ['dribl', 'dribbl']):
             return "**COMPARE:lowest_dribbling**"
         else:
             return "**COMPARE:lowest_overall**"
     
     # EN YÜKSEK - Önce spesifik statları kontrol et
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kim', 'oyuncu']):
-        # Önce tüm stat türlerini kontrol et
-        if 'fizik' in query_lower or 'physical' in query_lower:
+        # Önce tüm stat türlerini kontrol et (Türkçe karakter desteği ile)
+        if any(word in query_lower for word in ['fizik', 'fiziğ', 'physical']):
             return "**COMPARE:highest_physicality**"
-        elif 'hız' in query_lower or 'pace' in query_lower or 'en hızlı' in query_lower or 'hızlı' in query_lower:
+        elif any(word in query_lower for word in ['hız', 'hızl', 'pace']):
             return "**COMPARE:highest_pace**"
-        elif 'defans' in query_lower or 'savunma' in query_lower or 'defending' in query_lower:
+        elif any(word in query_lower for word in ['defans', 'savunma', 'defending']):
             return "**COMPARE:highest_defending**"
-        elif 'şut' in query_lower or 'shoot' in query_lower:
+        elif any(word in query_lower for word in ['şut', 'shoot']):
             return "**COMPARE:highest_shooting**"
-        elif 'pas' in query_lower or 'pass' in query_lower:
+        elif any(word in query_lower for word in ['pas', 'pass']):
             return "**COMPARE:highest_passing**"
-        elif 'dribl' in query_lower or 'dribbl' in query_lower:
+        elif any(word in query_lower for word in ['dribl', 'dribbl']):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
