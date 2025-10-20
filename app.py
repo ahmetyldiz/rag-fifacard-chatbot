@@ -321,6 +321,106 @@ if vectordb:
     
     else:
         st.error("❌ RAG zinciri kurulamadı.")
+
+# ✅ CSV-ONLY FALLBACK MODU
 else:
-    st.error("❌ Veritabanı yüklenemedi. CSV fallback modu kullanılıyor.")
+    st.warning("❌ Veritabanı yüklenemedi. CSV fallback modu kullanılıyor.")
     st.info("💡 Futbolcu adı yazarak CSV üzerinden arama yapabilirsiniz.")
+    
+    if "messages" not in st.session_state:
+        st.session_state.messages = []
+    
+    for message in st.session_state.messages:
+        with st.chat_message(message["role"]):
+            st.markdown(message["content"])
+    
+    if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, Ronaldo, en yüksek dereceli)..."):
+        processed_query = preprocess_query(prompt)
+        
+        st.session_state.messages.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+        
+        with st.chat_message("assistant"):
+            with st.spinner("⚽ Aranıyor..."):
+                try:
+                    if processed_query.startswith("**COMPARE:"):
+                        compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
+                        
+                        if compare_type == "highest_overall":
+                            stat_name = "Overall"
+                            stat_label = "Overall"
+                        elif compare_type == "highest_pace":
+                            stat_name = "Pace"
+                            stat_label = "Hız"
+                        else:
+                            stat_name = "Overall"
+                            stat_label = "Overall"
+                        
+                        if csv_df is not None:
+                            df_clean = csv_df.dropna(subset=[stat_name])
+                            top_df = df_clean.sort_values(by=stat_name, ascending=False).head(10)
+                            best = top_df.iloc[0]
+                            
+                            full_response = f"""━━━━━━━━━━━━━━━━━━━━
+⚽ **{best['Name']}**
+━━━━━━━━━━━━━━━━━━━━
+🏆 **OVR:** {int(best['Overall'])}
+🏟️ **Kulüp:** {best['Club']}
+
+📊 **İSTATİSTİKLER:**
+├─ ⚡ Hız: {int(best['Pace'])}
+├─ 🎯 Şut: {int(best['Shooting'])}
+├─ 🎨 Pas: {int(best['Passing'])}
+├─ ⚽ Dribling: {int(best['Dribbling'])}
+├─ 🛡️ Defans: {int(best['Defending'])}
+└─ 💪 Fizik: {int(best['Physicality'])}
+━━━━━━━━━━━━━━━━━━━━
+
+*En yüksek {stat_label}: {int(best[stat_name])}*"""
+                        else:
+                            full_response = "❌ CSV verisi yüklenemedi."
+                    
+                    else:
+                        if csv_df is not None:
+                            matching = csv_df[
+                                csv_df['Name'].str.contains(
+                                    processed_query, 
+                                    case=False, 
+                                    na=False, 
+                                    regex=False
+                                )
+                            ]
+                            
+                            if len(matching) > 0:
+                                best = matching.iloc[0]
+                                
+                                full_response = f"""━━━━━━━━━━━━━━━━━━━━
+⚽ **{best['Name']}**
+━━━━━━━━━━━━━━━━━━━━
+🏆 **OVR:** {int(best['Overall'])}
+🏟️ **Kulüp:** {best['Club']}
+
+📊 **İSTATİSTİKLER:**
+├─ ⚡ Hız: {int(best['Pace'])}
+├─ 🎯 Şut: {int(best['Shooting'])}
+├─ 🎨 Pas: {int(best['Passing'])}
+├─ ⚽ Dribling: {int(best['Dribbling'])}
+├─ 🛡️ Defans: {int(best['Defending'])}
+└─ 💪 Fizik: {int(best['Physicality'])}
+━━━━━━━━━━━━━━━━━━━━"""
+                            else:
+                                full_response = f"Üzgünüm, '{processed_query}' bulunamadı. Tam isim yazın."
+                        else:
+                            full_response = "❌ CSV verisi yüklenemedi."
+                    
+                    st.markdown(full_response)
+                    
+                except Exception as e:
+                    st.error(f"❌ Hata: {e}")
+                    import traceback
+                    with st.expander("🐛 Teknik Detaylar"):
+                        st.code(traceback.format_exc())
+                    full_response = "Üzgünüm, bir hata oluştu."
+        
+        st.session_state.messages.append({"role": "assistant", "content": full_response})
