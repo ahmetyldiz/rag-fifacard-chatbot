@@ -70,7 +70,24 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # Karşılaştırma sorguları
+    # ÖNCELİKLE "EN KÖTÜ" kontrolü (en yüksek'ten önce!)
+    if 'en kötü' in query_lower or 'en düşük' in query_lower or 'en zayıf' in query_lower or 'en az' in query_lower:
+        if 'hız' in query_lower or 'pace' in query_lower:
+            return "**COMPARE:lowest_pace**"
+        elif 'fizik' in query_lower or 'physicality' in query_lower:
+            return "**COMPARE:lowest_physicality**"
+        elif 'defans' in query_lower or 'defending' in query_lower:
+            return "**COMPARE:lowest_defending**"
+        elif 'şut' in query_lower or 'shooting' in query_lower:
+            return "**COMPARE:lowest_shooting**"
+        elif 'pas' in query_lower or 'passing' in query_lower:
+            return "**COMPARE:lowest_passing**"
+        elif 'dribling' in query_lower or 'dribbling' in query_lower:
+            return "**COMPARE:lowest_dribbling**"
+        else:
+            return "**COMPARE:lowest_overall**"
+    
+    # Karşılaştırma sorguları (en yüksek/iyi)
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
@@ -86,6 +103,30 @@ def preprocess_query(query):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
+    
+    # LLM ile dene
+    llm_result = extract_player_name_with_llm(query)
+    if llm_result:
+        return llm_result
+    
+    # Fallback: Manuel preprocessing
+    names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
+    if names:
+        return names[0]
+    
+    result = query_lower
+    suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
+                "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
+    for suffix in suffixes:
+        result = result.replace(suffix, "")
+    
+    stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
+    for word in stop_words:
+        result = result.replace(word, "")
+    
+    result = result.strip().split()[0] if result.strip().split() else result
+    return result.capitalize()
+
     
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
