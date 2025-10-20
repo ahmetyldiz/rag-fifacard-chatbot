@@ -187,14 +187,6 @@ with st.sidebar:
 
 vectordb = load_database()
 
-# CSV-ONLY FALLBACK MODU
-if not vectordb:
-    st.warning("❌ Veritabanı yüklenemedi. CSV fallback modu kullanılıyor.")
-    st.info("💡 Futbolcu adı yazarak CSV üzerinden arama yapabilirsiniz.")
-
-for message in st.session_state.messages:
-    with st.chat_message(message["role"]):
-        st.markdown(message["content"])
 
 # QUERY LİMİT KONTROLÜ
 if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
