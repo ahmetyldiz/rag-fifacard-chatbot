@@ -283,7 +283,19 @@ with st.sidebar:
 # ------------------- CHAT -------------------
 
 vectordb = load_database()
+if processed_query == "**GREETING**":
+    full_response_text = "Merhaba! ⚽ Ben FIFA Kartı Chatbot'uyum. Hangi futbolcunun kartını görmek istersin?"
+    st.info(full_response_text)
 
+elif processed_query == "**THANKS**":
+    full_response_text = "Rica ederim! 😊 Başka bir futbolcu aramak ister misin?"
+    st.success(full_response_text)
+
+elif processed_query == "**HOW_ARE_YOU**":
+    full_response_text = "Ben bir botum, ama iyi sayılırım! ⚽ Futbolcu kartları göstermekten keyif alıyorum. Sen ne aramak istersin?"
+    st.info(full_response_text)
+
+elif processed_query.startswith("**COMPARE:"):
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
