@@ -101,7 +101,7 @@ def create_database():
     # RAG formatına çevir
     df_clean['rag_chunk'] = df_clean.apply(create_player_chunk, axis=1)
     
-    # Document objelerine dönüştür
+    # Document objelerine dönüştür (METADATA ile)
     data_documents = [
         Document(
             page_content=chunk,
