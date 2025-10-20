@@ -335,26 +335,29 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                     
                     is_lowest = compare_type.startswith("lowest_")
                     if is_lowest:
-                        compare_type = compare_type.replace("lowest_", "highest_")
+                        compare_type = compare_type.replace("lowest_", "")
                         label_prefix = "En düşük"
+                        sort_ascending = True  # En düşük için ascending=True
                     else:
+                        compare_type = compare_type.replace("highest_", "")
                         label_prefix = "En yüksek"
+                        sort_ascending = False  # En yüksek için ascending=False
                     
                     stat_mapping = {
-                        "highest_overall": ("Overall", "Overall"),
-                        "highest_pace": ("Pace", "Hız"),
-                        "highest_defending": ("Defending", "Defans"),
-                        "highest_physicality": ("Physicality", "Fizik"),
-                        "highest_shooting": ("Shooting", "Şut"),
-                        "highest_passing": ("Passing", "Pas"),
-                        "highest_dribbling": ("Dribbling", "Dribling")
+                        "overall": ("Overall", "Overall"),
+                        "pace": ("Pace", "Hız"),
+                        "defending": ("Defending", "Defans"),
+                        "physicality": ("Physicality", "Fizik"),
+                        "shooting": ("Shooting", "Şut"),
+                        "passing": ("Passing", "Pas"),
+                        "dribbling": ("Dribbling", "Dribling")
                     }
                     
                     stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
                     
                     if csv_df is not None:
                         df_clean = csv_df.dropna(subset=[stat_name])
-                        best = df_clean.sort_values(by=stat_name, ascending=is_lowest).iloc[0]
+                        best = df_clean.sort_values(by=stat_name, ascending=sort_ascending).iloc[0]
                         
                         # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
                         full_response_text = f"⚽ **{best['Name']}** - {label_prefix} {stat_label}: **{int(best[stat_name])}** (Overall: {int(best['Overall'])})"
