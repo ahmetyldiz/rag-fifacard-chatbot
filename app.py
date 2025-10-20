@@ -70,9 +70,8 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # Karşılaştırma sorguları - SIRALAMA ÖNEMLİ!
+    # Karşılaştırma sorguları
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim']):
-        # ÖNCELİKLE spesifik kelimeleri kontrol et
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
         elif 'fizik' in query_lower or 'physicality' in query_lower or 'fizikli' in query_lower:
@@ -86,9 +85,10 @@ def preprocess_query(query):
         elif 'dribling' in query_lower or 'dribbling' in query_lower:
             return "**COMPARE:highest_dribbling**"
         else:
-            # Hiçbir spesifik stat yoksa Overall
             return "**COMPARE:highest_overall**"
-    
+        else:
+                st.write(f"🐛 Debug: Hiçbir stat eşleşmedi, Overall seçildi")
+                return "**COMPARE:highest_overall**"
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
     if llm_result:
@@ -111,6 +111,7 @@ def preprocess_query(query):
     
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
+
 
 # ------------------- CSV YÜKLEME -------------------
 
