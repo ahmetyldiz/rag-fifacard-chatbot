@@ -338,25 +338,35 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
             
             try:
                 if processed_query.startswith("**COMPARE:"):
-                    compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
-                    
-                    stat_mapping = {
-                        "highest_overall": ("Overall", "Overall"),
-                        "highest_pace": ("Pace", "Hız"),
-                        "highest_defending": ("Defending", "Defans"),
-                        "highest_physicality": ("Physicality", "Fizik"),
-                        "highest_shooting": ("Shooting", "Şut"),
-                        "highest_passing": ("Passing", "Pas"),
-                        "highest_dribbling": ("Dribbling", "Dribling")
-                    }
-                    
-                    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
-                    
-                    if csv_df is not None:
-                        df_clean = csv_df.dropna(subset=[stat_name])
-                        best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
-                        
-                        full_response = f"""
+    compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
+    
+    # "lowest" kontrolü
+    is_lowest = compare_type.startswith("lowest_")
+    if is_lowest:
+        compare_type = compare_type.replace("lowest_", "highest_")
+        label_prefix = "En düşük"
+    else:
+        label_prefix = "En yüksek"
+    
+    stat_mapping = {
+        "highest_overall": ("Overall", "Overall"),
+        "highest_pace": ("Pace", "Hız"),
+        "highest_defending": ("Defending", "Defans"),
+        "highest_physicality": ("Physicality", "Fizik"),
+        "highest_shooting": ("Shooting", "Şut"),
+        "highest_passing": ("Passing", "Pas"),
+        "highest_dribbling": ("Dribbling", "Dribling")
+    }
+    
+    stat_name, stat_label = stat_mapping.get(compare_type, ("Overall", "Overall"))
+    
+    if csv_df is not None:
+        df_clean = csv_df.dropna(subset=[stat_name])
+        # is_lowest=True ise ascending=True (küçükten büyüğe)
+        best = df_clean.sort_values(by=stat_name, ascending=is_lowest).iloc[0]
+        
+        # Kart HTML'i (aynı)
+        full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
     <p>🏆 Overall: <b>{int(best['Overall'])}</b> | 🏟️ {best['Club']}</p>
@@ -373,9 +383,11 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
         <span>💪 Fizik: <b>{int(best['Physicality'])}</b></span>
     </div>
     <hr style="border-color: rgba(255,255,255,0.3); margin: 15px 0;">
-    <p style="text-align:center; font-style:italic;">En yüksek {stat_label}: {int(best[stat_name])}</p>
+    <p style="text-align:center; font-style:italic;">{label_prefix} {stat_label}: {int(best[stat_name])}</p>
 </div>
 """
+        # ... (stat barları aynı)
+
                         
                         st.markdown(full_response, unsafe_allow_html=True)
                         
