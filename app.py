@@ -154,17 +154,21 @@ def load_database():
 
 st.markdown("""
 <style>
-    /* Sidebar'ı her zaman göster */
-    [data-testid="stSidebar"] {
-        display: block !important;
+    /* Sidebar'ı zorla göster */
+    section[data-testid="stSidebar"] {
+        width: 300px !important;
         min-width: 300px !important;
     }
     
-    [data-testid="stSidebar"] > div:first-child {
+    section[data-testid="stSidebar"] > div {
         width: 300px !important;
     }
     
-    /* ... (diğer CSS'ler) */
+    /* Sidebar arka plan */
+    [data-testid="stSidebar"] {
+        background-color: #1e1e1e;
+    }
+    
     /* Ana başlık */
     .main-title {
         text-align: center;
@@ -200,17 +204,13 @@ st.markdown("""
         margin: 5px 0;
     }
     
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background-color: #f8f9fa;
-    }
-    
     /* Chat input */
     .stChatInput {
         border-radius: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
+
 
 # ------------------- STREAMLIT ARAYÜZÜ -------------------
 
