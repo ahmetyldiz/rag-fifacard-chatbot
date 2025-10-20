@@ -70,14 +70,15 @@ def preprocess_query(query):
     """Hybrid preprocessing: LLM + Fallback"""
     query_lower = query.lower()
     
-    # Karşılaştırma sorguları
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı']):
+    # Karşılaştırma sorguları - SIRALAMA ÖNEMLİ!
+    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim']):
+        # ÖNCELİKLE spesifik kelimeleri kontrol et
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
-        elif 'defans' in query_lower or 'defending' in query_lower:
-            return "**COMPARE:highest_defending**"
         elif 'fizik' in query_lower or 'physicality' in query_lower or 'fizikli' in query_lower:
             return "**COMPARE:highest_physicality**"
+        elif 'defans' in query_lower or 'defending' in query_lower:
+            return "**COMPARE:highest_defending**"
         elif 'şut' in query_lower or 'shooting' in query_lower:
             return "**COMPARE:highest_shooting**"
         elif 'pas' in query_lower or 'passing' in query_lower:
@@ -85,6 +86,7 @@ def preprocess_query(query):
         elif 'dribling' in query_lower or 'dribbling' in query_lower:
             return "**COMPARE:highest_dribbling**"
         else:
+            # Hiçbir spesifik stat yoksa Overall
             return "**COMPARE:highest_overall**"
     
     # LLM ile dene
