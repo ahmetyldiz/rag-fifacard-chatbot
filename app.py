@@ -71,10 +71,10 @@ def preprocess_query(query):
     query_lower = query.lower()
     
     # Karşılaştırma sorguları
-    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim']):
+    if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kimdir', 'en hızlı', 'hızlı', 'kim', 'oyuncu']):
         if 'hız' in query_lower or 'pace' in query_lower or 'hızlı' in query_lower:
             return "**COMPARE:highest_pace**"
-        elif 'fizik' in query_lower or 'physicality' in query_lower or 'fizikli' in query_lower:
+        elif 'fizik' in query_lower or 'physicality' in query_lower:
             return "**COMPARE:highest_physicality**"
         elif 'defans' in query_lower or 'defending' in query_lower:
             return "**COMPARE:highest_defending**"
@@ -86,9 +86,7 @@ def preprocess_query(query):
             return "**COMPARE:highest_dribbling**"
         else:
             return "**COMPARE:highest_overall**"
-        else:
-                st.write(f"🐛 Debug: Hiçbir stat eşleşmedi, Overall seçildi")
-                return "**COMPARE:highest_overall**"
+    
     # LLM ile dene
     llm_result = extract_player_name_with_llm(query)
     if llm_result:
@@ -111,7 +109,6 @@ def preprocess_query(query):
     
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
-
 
 # ------------------- CSV YÜKLEME -------------------
 
@@ -175,6 +172,7 @@ with st.sidebar:
     - En yüksek dereceli futbolcu
     - En iyi defans
     - En hızlı oyuncu
+    - Fiziği en yüksek oyuncu
     """)
     st.markdown("---")
     st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
@@ -226,6 +224,9 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                     if csv_df is not None:
                         df_clean = csv_df.dropna(subset=[stat_name])
                         best = df_clean.sort_values(by=stat_name, ascending=False).iloc[0]
+                        
+                        if show_debug:
+                            st.info(f"🔍 Debug: '{prompt}' → '{processed_query}' → Stat: {stat_name}")
                         
                         full_response = f"""━━━━━━━━━━━━━━━━━━━━
 ⚽ **{best['Name']}**
@@ -286,6 +287,8 @@ if prompt := st.chat_input("Futbolcu adı girin..."):
                 
             except Exception as e:
                 st.error(f"❌ Hata: {e}")
+                import traceback
+                st.code(traceback.format_exc())
                 full_response = "Üzgünüm, bir hata oluştu."
     
     st.session_state.messages.append({"role": "assistant", "content": full_response})
