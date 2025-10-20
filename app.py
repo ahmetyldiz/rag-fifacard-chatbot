@@ -154,6 +154,17 @@ def load_database():
 
 st.markdown("""
 <style>
+    /* Sidebar'ı her zaman göster */
+    [data-testid="stSidebar"] {
+        display: block !important;
+        min-width: 300px !important;
+    }
+    
+    [data-testid="stSidebar"] > div:first-child {
+        width: 300px !important;
+    }
+    
+    /* ... (diğer CSS'ler) */
     /* Ana başlık */
     .main-title {
         text-align: center;
