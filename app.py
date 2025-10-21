@@ -166,10 +166,13 @@ def preprocess_query(query):
 # VERİ YÜKLEME FONKSİYONLARI
 # ===============================================
 
+# ===============================================
+# VERİ YÜKLEME FONKSİYONLARI
+# ===============================================
 @st.cache_resource(show_spinner=False)
 def load_database():
     """
-    ChromaDB Vector Database (Opsiyonel)
+    ChromaDB Vector Database
     
     RAG mimarisinde semantic search için ChromaDB entegrasyonu.
     Şu anda prototip için CSV kullanılıyor, ancak gelecek versiyonlarda
@@ -194,29 +197,7 @@ def load_database():
     except Exception:
         return None
 
-
-# ------------------- VERITABANI YÜKLEME -------------------
-
-@st.cache_resource(show_spinner=False)
-def load_database():
-    if not GEMINI_KEY:
-        return None
-    
-    embedding_function = GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=GEMINI_KEY
-    )
-    
-    try:
-        vectordb = Chroma(
-            persist_directory=PERSIST_DIRECTORY,
-            embedding_function=embedding_function,
-            collection_name=COLLECTION_NAME
-        )
-        vectordb.similarity_search("test", k=1)
-        return vectordb
-    except Exception:
-        return None
+# Veri yükleme
 csv_df = load_csv_data()
 
 # ===============================================
