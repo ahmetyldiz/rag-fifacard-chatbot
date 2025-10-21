@@ -271,3 +271,4 @@ Bu proje bir bilgisayar mühendisliği öğrencisi tarafından AI/ML öğrenme s
 
 
 **⚽ İyi aramalar!**
+https://rag-fifacard-chatbot-6urllsgerlylkurvl62zbh.streamlit.app/
