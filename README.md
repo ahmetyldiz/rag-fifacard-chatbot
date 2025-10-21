@@ -214,9 +214,9 @@ pip install unidecode
 
 `app.py` içindeki CSS bölümünü düzenleyin:
 
+# Renkleri değiştirin
 .fifa-card {
 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-# Renkleri değiştirin
 }
 
 
