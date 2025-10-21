@@ -217,6 +217,7 @@ def load_database():
         return vectordb
     except Exception:
         return None
+csv_df = load_csv_data()
 
 # ===============================================
 # ARAYÜZ STİLİ (CSS)
