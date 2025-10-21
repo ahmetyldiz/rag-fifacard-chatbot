@@ -150,7 +150,7 @@ RATE_LIMIT_SECONDS = 2          # Sorgular arası minimum süre
 PERSIST_DIRECTORY = "./chroma_db"  # ChromaDB klasörü
 COLLECTION_NAME = "fifa-players"   # Koleksiyon adı
 ```
-```
+
 
 ## ⚠️ Önemli Notlar
 
