@@ -97,7 +97,7 @@ def preprocess_query(query):
     elif 'nasılsın' in query_lower or 'naber' in query_lower:
         return "**HOW_ARE_YOU**"
     
-    # En düşük stat sorguları
+    # En düşük istatistik sorguları
     if 'en kötü' in query_lower or 'en düşük' in query_lower:
         if any(word in query_lower for word in ['hız', 'hızl', 'pace']):
             return "**COMPARE:lowest_pace**"
@@ -114,7 +114,7 @@ def preprocess_query(query):
         else:
             return "**COMPARE:lowest_overall**"
     
-    # En yüksek stat sorguları (öncelik: spesifik statlar)
+    # En yüksek istatistik sorguları
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kim', 'oyuncu']):
         if any(word in query_lower for word in ['fizik', 'fiziğ', 'physical']):
             return "**COMPARE:highest_physicality**"
