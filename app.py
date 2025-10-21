@@ -74,7 +74,14 @@ Futbolcu adı:"""
         return None
 
 def preprocess_query(query):
-    """Hybrid preprocessing: LLM + Fallback"""
+    """
+    RAG Pipeline - Query Preprocessing Stage
+    
+    Bu fonksiyon RAG pipeline'ının Retrieval kısmını oluşturur:
+    1. LLM ile query understanding (Gemini API)
+    2. Intent classification (stat comparison vs. player search)
+    3. Query augmentation (normalization, fuzzy matching)
+    """
     query_lower = query.lower()
     
     # 🔍 DEBUG: Konsola yazdır
