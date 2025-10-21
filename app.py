@@ -1,4 +1,4 @@
-# pysqlite3 sadece Streamlit Cloud için gerekli
+# Streamlit Cloud için SQLite uyumluluk düzenlemesi
 try:
     __import__('pysqlite3')
     import sys
@@ -19,10 +19,12 @@ from langchain.chains import create_retrieval_chain
 from langchain.chains.combine_documents import create_stuff_documents_chain
 from langchain_core.prompts import ChatPromptTemplate
 
-# ------------------- YAPILANDIRMA -------------------
-
+# ===============================================
+# YAPILANDIRMA VE SABITLER
+# ===============================================
 load_dotenv()
 
+# API ve veritabanı yapılandırması
 GEMINI_KEY = (
     os.environ.get("GEMINI_API_KEY") or
     st.secrets.get("GEMINI_API_KEY", None) or
@@ -30,10 +32,14 @@ GEMINI_KEY = (
 ) 
 PERSIST_DIRECTORY = "./chroma_db"
 COLLECTION_NAME = "fifa-players"
+
+# Güvenlik ve hız sınırlayıcıları
 MAX_QUERIES_PER_SESSION = 20
 RATE_LIMIT_SECONDS = 2
 
-# ------------------- LLM PREPROCESSING -------------------
+# ===============================================
+# LLM TABANLI SORGU İŞLEME
+# ===============================================
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def extract_player_name_with_llm(query):
@@ -58,6 +64,7 @@ Futbolcu adı:"""
         response = llm.invoke(prompt)
         player_name = response.content.strip()
         
+        # Çok uzun yanıtları geçersiz say
         if len(player_name) > 30:
             return None
         
@@ -80,7 +87,7 @@ def preprocess_query(query):
     print(f"'physical' in query_lower: {'physical' in query_lower}")
     print(f"{'='*50}\n")
     
-    # Genel mesajlar
+    # Genel konuşma mesajları için
     if query_lower in ['merhaba', 'selam', 'hello', 'hi', 'hey']:
         return "**GREETING**"
     elif query_lower in ['teşekkürler', 'teşekkür ederim', 'sağol', 'thanks', 'thank you']:
@@ -88,7 +95,7 @@ def preprocess_query(query):
     elif 'nasılsın' in query_lower or 'naber' in query_lower:
         return "**HOW_ARE_YOU**"
     
-    # EN KÖTÜ
+    # EN KÖTÜ/DÜŞÜK sorguları için
     if 'en kötü' in query_lower or 'en düşük' in query_lower:
         if any(word in query_lower for word in ['hız', 'hızl', 'pace']):
             return "**COMPARE:lowest_pace**"
@@ -105,9 +112,8 @@ def preprocess_query(query):
         else:
             return "**COMPARE:lowest_overall**"
     
-    # EN YÜKSEK - Önce spesifik statları kontrol et
+    # EN YÜKSEK sorguları için
     if any(word in query_lower for word in ['en yüksek', 'en iyi', 'kim', 'oyuncu']):
-        # Önce tüm stat türlerini kontrol et (Türkçe karakter desteği ile)
         if any(word in query_lower for word in ['fizik', 'fiziğ', 'physical']):
             return "**COMPARE:highest_physicality**"
         elif any(word in query_lower for word in ['hız', 'hızl', 'pace']):
@@ -123,30 +129,35 @@ def preprocess_query(query):
         else:
             return "**COMPARE:highest_overall**"
     
-    # LLM ile dene
+    # LLM ile futbolcu adını çıkarma
     llm_result = extract_player_name_with_llm(query)
     if llm_result and llm_result not in ['Yok', 'Yok.', 'Bilinmiyor', '-', 'None']:
         return llm_result
     
-    # Fallback: Manuel preprocessing
+    # Manuel fallback: Regex ile isim bulma
     names = re.findall(r'\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b', query)
     if names:
         return names[0]
-    
+
+    #TÜRKÇE EKLERİNİ TEMİZLE
     result = query_lower
     suffixes = ["'nın", "'nin", "'ın", "'in", "nın", "nin", "ın", "in", 
                 "'un", "'ün", "un", "ün", "'nda", "'de", "da", "de"]
     for suffix in suffixes:
         result = result.replace(suffix, "")
-    
+
+    #GEREKSİZ KELİMELERİ TEMİZLE
     stop_words = ['kartı', 'kart', 'kartını', 'göster', 'oluştur', 'getir', 'bana', 'fifa']
     for word in stop_words:
         result = result.replace(word, "")
-    
+        
+    #İLK ANLAMLI KELİMEYİ AL
     result = result.strip().split()[0] if result.strip().split() else result
     return result.capitalize()
 
-# ------------------- CSV YÜKLEME -------------------
+# ===============================================
+# VERİ YÜKLEME FONKSİYONLARI
+# ===============================================
 
 @st.cache_data(show_spinner=False)
 def load_csv_data():
@@ -186,7 +197,9 @@ def load_database():
     except Exception:
         return None
 
-# ------------------- CUSTOM CSS -------------------
+# ===============================================
+# ARAYÜZ STİLİ (CSS)
+# ===============================================
 
 st.markdown("""
 <style>
@@ -242,7 +255,9 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ------------------- STREAMLIT ARAYÜZÜ -------------------
+# ===============================================
+# STREAMLIT SAYFA YAPISI
+# ===============================================
 
 st.set_page_config(
     page_title="⚽ FIFA Kartı Chatbot",
@@ -251,9 +266,11 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Sayfa başlığı ve açıklama
 st.markdown('<h1 class="main-title">⚽ FIFA Kartı Oluşturucu</h1>', unsafe_allow_html=True)
 st.markdown("<p style='text-align:center; color:#666;'>🔍 17,000+ futbolcudan istediğini ara ve kartını gör!</p>", unsafe_allow_html=True)
 
+# Session state başlatma
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "query_count" not in st.session_state:
@@ -261,12 +278,15 @@ if "query_count" not in st.session_state:
 if "last_request_time" not in st.session_state:
     st.session_state.last_request_time = 0
 
-# ------------------- SIDEBAR -------------------
+# ===============================================
+# SIDEBAR (YAN MENÜ)
+# ===============================================
 
 with st.sidebar:
     st.markdown("### ⚽ FIFA Kartı Chatbot")
     st.markdown("---")
     
+    # Sistem durumu metrikleri
     st.markdown("### 📊 Sistem Durumu")
     col1, col2 = st.columns(2)
     with col1:
@@ -275,7 +295,8 @@ with st.sidebar:
         st.metric("Kalan Sorgu", max(0, MAX_QUERIES_PER_SESSION - st.session_state.query_count))
     
     st.markdown("---")
-    
+
+    # Kullanım örnekleri
     st.markdown("### 📖 Örnek Sorgular")
     st.markdown("""
     **🔍 Futbolcu Ara:**
@@ -293,20 +314,28 @@ with st.sidebar:
     st.markdown("---")
     st.caption("🤖 LLM-powered search with CSV fallback")
 
-# ------------------- CHAT -------------------
+# ===============================================
+# CHAT ARAYÜZÜ
+# ===============================================
 
 vectordb = load_database()
 
+# Önceki mesajları göster
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"], unsafe_allow_html=True)
-
+        
+# Sorgu limiti kontrolü
 if st.session_state.query_count >= MAX_QUERIES_PER_SESSION:
     st.error(f"❌ Maksimum sorgu limitine ulaştınız ({MAX_QUERIES_PER_SESSION}). Sayfayı yenileyerek devam edebilirsiniz.")
     st.stop()
 
+# ===============================================
+# KULLANICI SORGUSU İŞLEME
+# ===============================================
+
 if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)..."):
-    current_time = time.time()
+    current_time = time.time() # Rate limiting kontrolü
     if current_time - st.session_state.last_request_time < RATE_LIMIT_SECONDS:
         st.warning(f"⏳ Lütfen {RATE_LIMIT_SECONDS} saniye bekleyin...")
         st.stop()
@@ -314,21 +343,23 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
     st.session_state.last_request_time = current_time
     st.session_state.query_count += 1
     
+    # Sorguyu işle
     processed_query = preprocess_query(prompt)
     
+    # Kullanıcı mesajını kaydet ve göster
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
-    
+        
+    # Bot yanıtı
     with st.chat_message("assistant"):
         with st.spinner("⚽ FIFA Kartı hazırlanıyor..."):
             time.sleep(0.3)
             
-            # Bu değişken her zaman atanacak
             full_response_text = ""
             
             try:
-                # GREETING kontrolü
+                #GÜNDELİK SORULARIN YANITLARI
                 if processed_query == "**GREETING**":
                     full_response_text = "Merhaba! ⚽ Ben FIFA Kartı Chatbot'uyum. Hangi futbolcunun kartını görmek istersin?"
                     st.info(full_response_text)
@@ -344,16 +375,18 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                 elif processed_query.startswith("**COMPARE:"):
                     compare_type = processed_query.replace("**COMPARE:", "").replace("**", "")
                     
+                    # En düşük veya en yüksek belirleme
                     is_lowest = compare_type.startswith("lowest_")
                     if is_lowest:
                         compare_type = compare_type.replace("lowest_", "")
                         label_prefix = "En düşük"
-                        sort_ascending = True  # En düşük için ascending=True
+                        sort_ascending = True
                     else:
                         compare_type = compare_type.replace("highest_", "")
                         label_prefix = "En yüksek"
-                        sort_ascending = False  # En yüksek için ascending=False
-                    
+                        sort_ascending = False 
+                        
+                        # İSTATİSTİK TÜRÜ EŞLEŞTİRME
                     stat_mapping = {
                         "overall": ("Overall", "Overall"),
                         "pace": ("Pace", "Hız"),
@@ -364,26 +397,25 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         "dribbling": ("Dribbling", "Dribling")
                     }
                     
-                    # Stat mapping'den değerleri al
                     if compare_type in stat_mapping:
                         stat_name, stat_label = stat_mapping[compare_type]
                     else:
                         stat_name, stat_label = "Overall", "Overall"
                     
                     if csv_df is not None:
-                        # Debug: Sütun adlarını kontrol et
+                        # Sütun kontrolü
                         if stat_name not in csv_df.columns:
                             available_stats = [col for col in csv_df.columns if any(s in col.lower() for s in ['pace', 'shoot', 'pass', 'dribbl', 'defend', 'physic', 'overall'])]
                             full_response_text = f"❌ '{stat_name}' sütunu bulunamadı. Mevcut sütunlar: {', '.join(available_stats[:10])}"
                             st.error(full_response_text)
-                        else:
+                        else: # En iyi/kötü futbolcuyu bul
                             df_clean = csv_df.dropna(subset=[stat_name])
                             best = df_clean.sort_values(by=stat_name, ascending=sort_ascending).iloc[0]
                         
-                        # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
+                        # Metin yanıtı oluştur
                         full_response_text = f"⚽ **{best['Name']}** - {label_prefix} {stat_label}: **{int(best[stat_name])}** (Overall: {int(best['Overall'])})"
                         
-                        # Sonra HTML kartı göster
+                        # FIFA kartı HTML'i
                         full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -407,6 +439,7 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         
                         st.markdown(full_response, unsafe_allow_html=True)
                         
+                        # Progress bar'lar ile detaylı istatistikler
                         st.markdown("### 📊 Detaylı İstatistikler")
                         col1, col2 = st.columns(2)
                         
@@ -428,12 +461,13 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                     else:
                         full_response_text = "❌ CSV verisi yüklenemedi."
                         st.error(full_response_text)
-                
-                else:
-                    # Normal futbolcu arama
-                    if csv_df is not None:
-                        matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]
                         
+                # Normal futbolcu arama
+                else:
+                    if csv_df is not None:
+                        matching = csv_df[csv_df['Name'].str.contains(processed_query, case=False, na=False, regex=False)]# Tam eşleşme ara
+
+                        # Eşleşme yoksa Türkçe karakter normalize et
                         if len(matching) == 0:
                             csv_df['Name_normalized'] = csv_df['Name'].apply(lambda x: unidecode(str(x)).lower())
                             processed_normalized = unidecode(processed_query).lower()
@@ -442,10 +476,10 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                         if len(matching) > 0:
                             best = matching.iloc[0]
                             
-                            # ✅ ÖNEMLİ: Önce text versiyonunu oluştur
+                            # Metin yanıtı
                             full_response_text = f"⚽ **{best['Name']}** - Overall: **{int(best['Overall'])}** | Club: {best['Club']}"
                             
-                            # Sonra HTML kartı göster
+                            # FIFA kartı HTML'i
                             full_response = f"""
 <div class="fifa-card">
     <h2>⚽ {best['Name']}</h2>
@@ -496,5 +530,5 @@ if prompt := st.chat_input("Futbolcu adı girin (örn: Messi, en hızlı oyuncu)
                 st.error(f"❌ Hata: {e}")
                 full_response_text = "❌ Üzgünüm, bir hata oluştu. Lütfen tekrar deneyin."
     
-    # ✅ Artık full_response_text her zaman tanımlı
+    # Bot yanıtını kaydet
     st.session_state.messages.append({"role": "assistant", "content": full_response_text})
