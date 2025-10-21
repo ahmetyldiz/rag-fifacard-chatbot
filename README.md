@@ -211,19 +211,20 @@ pip install unidecode
 
 ### Rate limit uyarısı
 - 2 saniye bekleyin ve tekrar deneyin
-- `RATE_LIMIT_SECONDS` değerini azaltabilirsiniz (önerilmez)
+- ````RATE_LIMIT_SECONDS```` değerini azaltabilirsiniz (önerilmez)
 
 ## 🎨 Özelleştirme
 
 ### Kart Tasarımını Değiştirme
 
-`app.py` içindeki CSS bölümünü düzenleyin:
+````app.py```` içindeki CSS bölümünü düzenleyin:
 
 ### Renkleri değiştirin
+```
 .fifa-card {
 background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
-
+```
 
 ### Sorgu Limitini Artırma
 
