@@ -168,6 +168,12 @@ def preprocess_query(query):
 
 @st.cache_data(show_spinner=False)
 def load_csv_data():
+    """
+    Vector Database Simulation
+    
+    Production'da ChromaDB/Pinecone olurdu, ama prototip için
+    Pandas DataFrame kullanıyoruz (hızlı ve hafif).
+    """
     csv_path = 'male_players.csv'
     if os.path.exists(csv_path):
         try:
