@@ -194,7 +194,6 @@ def load_database():
     except Exception:
         return None
 
-csv_df = load_csv_data()
 
 # ------------------- VERITABANI YÜKLEME -------------------
 
