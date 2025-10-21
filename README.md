@@ -72,9 +72,9 @@ streamlit run app.py
 Tarayıcınızda otomatik olarak açılacaktır (genellikle http://localhost:8501).
 
 
-```markdown
-## 📁 Proje Yapısı
 
+## 📁 Proje Yapısı
+```markdown
 ```
 .
 ├── app.py              # Ana uygulama dosyası
@@ -84,7 +84,7 @@ Tarayıcınızda otomatik olarak açılacaktır (genellikle http://localhost:850
 ├── chroma_db/         # ChromaDB vektör veritabanı (opsiyonel)
 └── README.md          # Bu dosya
 ```
-
+```
 ## 💡 Nasıl Çalışır?
 
 ### Veri İşleme Akışı
