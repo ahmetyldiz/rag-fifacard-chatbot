@@ -72,16 +72,18 @@ streamlit run app.py
 Tarayıcınızda otomatik olarak açılacaktır (genellikle http://localhost:8501).
 
 
+```markdown
 ## 📁 Proje Yapısı
 
+```
 .
-├── app.py # Ana uygulama dosyası
-├── male_players.csv # Futbolcu veri seti (17,000+ oyuncu)
-├── requirements.txt # Python bağımlılıkları
-├── .env # API anahtarları (git'e eklenmez)
-├── chroma_db/ # ChromaDB vektör veritabanı (opsiyonel)
-└── README.md # Bu dosya
-
+├── app.py              # Ana uygulama dosyası
+├── male_players.csv    # Futbolcu veri seti (17,000+ oyuncu)
+├── requirements.txt    # Python bağımlılıkları
+├── .env               # API anahtarları (git'e eklenmez)
+├── chroma_db/         # ChromaDB vektör veritabanı (opsiyonel)
+└── README.md          # Bu dosya
+```
 
 ## 💡 Nasıl Çalışır?
 
@@ -142,10 +144,13 @@ CSV dosyası şu sütunları içermelidir:
 
 `app.py` içindeki sabitler:
 
-MAX_QUERIES_PER_SESSION = 20 # Oturum başına maksimum sorgu
-RATE_LIMIT_SECONDS = 2 # Sorgular arası minimum süre
-PERSIST_DIRECTORY = "./chroma_db" # ChromaDB klasörü
-COLLECTION_NAME = "fifa-players" # Koleksiyon adı
+```
+MAX_QUERIES_PER_SESSION = 20    # Oturum başına maksimum sorgu
+RATE_LIMIT_SECONDS = 2          # Sorgular arası minimum süre
+PERSIST_DIRECTORY = "./chroma_db"  # ChromaDB klasörü
+COLLECTION_NAME = "fifa-players"   # Koleksiyon adı
+```
+```
 
 ## ⚠️ Önemli Notlar
 
