@@ -166,23 +166,32 @@ def preprocess_query(query):
 # VERİ YÜKLEME FONKSİYONLARI
 # ===============================================
 
-@st.cache_data(show_spinner=False)
-def load_csv_data():
+@st.cache_resource(show_spinner=False)
+def load_database():
     """
-    Vector Database Simulation
+    ChromaDB Vector Database (Opsiyonel)
     
-    Production'da ChromaDB/Pinecone olurdu, ama prototip için
-    Pandas DataFrame kullanıyoruz (hızlı ve hafif).
+    RAG mimarisinde semantic search için ChromaDB entegrasyonu.
+    Şu anda prototip için CSV kullanılıyor, ancak gelecek versiyonlarda
+    embedding-based retrieval için aktif hale getirilebilir.
     """
-    csv_path = 'male_players.csv'
-    if os.path.exists(csv_path):
-        try:
-            return pd.read_csv(csv_path)
-        except Exception as e:
-            st.error(f"CSV yükleme hatası: {e}")
-            return None
-    else:
-        st.error(f"❌ '{csv_path}' dosyası bulunamadı!")
+    if not GEMINI_KEY:
+        return None
+    
+    embedding_function = GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004",
+        google_api_key=GEMINI_KEY
+    )
+    
+    try:
+        vectordb = Chroma(
+            persist_directory=PERSIST_DIRECTORY,
+            embedding_function=embedding_function,
+            collection_name=COLLECTION_NAME
+        )
+        vectordb.similarity_search("test", k=1)
+        return vectordb
+    except Exception:
         return None
 
 csv_df = load_csv_data()
