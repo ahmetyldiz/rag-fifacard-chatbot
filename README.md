@@ -211,13 +211,13 @@ pip install unidecode
 
 ### Rate limit uyarısı
 - 2 saniye bekleyin ve tekrar deneyin
-- ````RATE_LIMIT_SECONDS```` değerini azaltabilirsiniz (önerilmez)
+- `RATE_LIMIT_SECONDS` değerini azaltabilirsiniz (önerilmez)
 
 ## 🎨 Özelleştirme
 
 ### Kart Tasarımını Değiştirme
 
-````app.py```` içindeki CSS bölümünü düzenleyin:
+`app.py` içindeki CSS bölümünü düzenleyin:
 
 ### Renkleri değiştirin
 ```
